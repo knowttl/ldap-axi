@@ -135,7 +135,7 @@ jobs:
     needs: release-stage
     runs-on: windows-2022
     permissions:
-      contents: read
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
