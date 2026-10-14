@@ -16,8 +16,8 @@ ldap-axi auth status --offline
 
 See the [support matrix](docs/support-matrix.md#installing-from-npm-before-native-release-assets-exist) for native installation requirements and the distinction between bootstrap and tag-workflow packages.
 The executable is `ldap-axi`.
-The published 0.1.0 package provides eight directory read commands, `auth status`, and the offline home view.
-The credential profiles, SecretRefs, `profile list`, and `config path` documented below require a release containing this migration; they are unavailable in 0.1.0.
+The 0.1.2 release provides eight directory read commands, `auth status`, and the offline home view.
+The credential profiles, SecretRefs, `profile list`, and `config path` documented below require a release containing this migration; they are unavailable in 0.1.0 and 0.1.1.
 Until that release, use a source checkout containing this change:
 
 ```sh
