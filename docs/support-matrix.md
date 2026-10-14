@@ -59,16 +59,15 @@ development headers; Windows source builds need node-gyp, MSVC, and the Windows 
 
 ### Installing a GitHub release archive
 
-These instructions apply from `v0.1.1` once its tested release assets are published.
-Download `knowttl-ldap-axi-0.1.1.tgz` from the
-[GitHub release](https://github.com/knowttl/ldap-axi/releases/tag/v0.1.1), then run the following from the download directory with Node `>=24.11.0`.
+Once the tested `v0.1.2` release assets are published, download `knowttl-ldap-axi-0.1.2.tgz` from the
+[GitHub release](https://github.com/knowttl/ldap-axi/releases/tag/v0.1.2), then run the following from the download directory with Node `>=24.11.0`.
 Use the packaged `.tgz` asset, which contains the release-pinned native digests; GitHub's automatically generated source archives and a source checkout do not contain the Windows release digest.
 
 Windows x64 (PowerShell):
 
 ```powershell
 $env:LDAP_AXI_NATIVE_MODE = 'prebuild'
-npm install --global ./knowttl-ldap-axi-0.1.1.tgz
+npm install --global ./knowttl-ldap-axi-0.1.2.tgz
 Remove-Item Env:LDAP_AXI_NATIVE_MODE
 ldap-axi auth status --offline
 ```
@@ -76,11 +75,11 @@ ldap-axi auth status --offline
 Linux glibc x64:
 
 ```sh
-LDAP_AXI_NATIVE_MODE=prebuild npm install --global ./knowttl-ldap-axi-0.1.1.tgz
+LDAP_AXI_NATIVE_MODE=prebuild npm install --global ./knowttl-ldap-axi-0.1.2.tgz
 ldap-axi auth status --offline
 ```
 
-On Windows the install script downloads `kerberos-win32-x64.node` from the matching `v0.1.1` release and checks its SHA-256 digest against the archive's `prebuilds/manifest.json` before loading it.
+On Windows the install script downloads `kerberos-win32-x64.node` from the matching versioned release and checks its SHA-256 digest against the archive's `prebuilds/manifest.json` before loading it.
 This path needs HTTPS access to GitHub release downloads, but does not need MSVC or the Windows SDK.
 On Linux the archive bundles `kerberos-linux-glibc-x64.node` with a pinned digest, so no separate native download or compiler is needed.
 The Linux ABI and runtime-library requirements above still apply.
@@ -98,7 +97,7 @@ See [the README](../README.md) for the npm package name and common installation 
 The 0.1.0 bootstrap package retains the source tree's bundled Linux prebuild and Linux-only digest manifest.
 It does not provide a compiler-free Windows native installation: without a pinned Windows manifest entry, automatic mode needs MSVC and the Windows SDK for its source fallback.
 Publishing Windows release assets later cannot add a digest to an already-published npm package.
-Once published through the tag workflow, the 0.1.1 npm package contains both release-pinned digests and supports the same compiler-free installation as the [release-packed archive](#installing-a-github-release-archive).
+Packages published through the tag workflow contain both release-pinned digests and support the same compiler-free installation as the [release-packed archive](#installing-a-github-release-archive).
 
 ## Linux runtime libraries, and the Nix/WSL hazard
 
