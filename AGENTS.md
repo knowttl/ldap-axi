@@ -186,7 +186,7 @@ vacuous mode test.
 - Secrets reach ldap-axi through the environment or a `0600` file, **never** through `argv`.
   A flag-registration guard rejects any flag whose name looks like a secret, and a test asserts declaring
   `--bind-password` throws.
-- Within the selected profile source, half a credential pair is `CREDENTIAL_INCOMPLETE`; no other source is consulted as a fallback.
+- A half credential pair is `CREDENTIAL_INCOMPLETE` when resolving an env profile or simple authentication; no other source is consulted as a fallback, and ambient auth leaves file-profile passwords unresolved (§11.1).
 - Anonymous bind is explicit via `--anonymous`, never a silent fallback when a credential fails to resolve.
 - `userPassword` and `unicodePwd` are on a never-request denylist; naming one in `--attributes` is refused.
 - No credential, password, DN from a real directory, SID, GUID, or captured directory content belongs in this

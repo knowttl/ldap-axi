@@ -29,8 +29,7 @@ See `docs/design/v1.md` §1 for what is deferred and why, and §5.4 for the per-
 | `simple` | `--auth simple` | Preserves a configured service identity and never loads the native provider |
 | anonymous | `--anonymous` | Explicit only, never a fallback |
 
-`--gssapi-service` and the selected profile's `gssapiService` override the host-based service name.
-`LDAP_AXI_GSSAPI_SERVICE` supplies that field only in an env profile; file-selected profiles ignore env profile fields.
+Service-target overrides and their profile-source isolation follow `docs/design/v1.md` §11.1.
 Use `--tls-max-version 1.2` only for verified LDAPS or StartTLS endpoints that require a TLS 1.2 cap.
 Credential rules, including the never-on-argv guarantee, are in `docs/design/v1.md` §11.
 

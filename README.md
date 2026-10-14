@@ -17,7 +17,7 @@ ldap-axi auth status --offline
 See the [support matrix](docs/support-matrix.md#installing-from-npm-before-native-release-assets-exist) for native installation requirements and the distinction between bootstrap and tag-workflow packages.
 The executable is `ldap-axi`.
 The 0.1.2 release provides eight directory read commands, `auth status`, and the offline home view.
-The credential profiles, SecretRefs, `profile list`, and `config path` documented below require a release containing this migration; they are unavailable in 0.1.0 and 0.1.1.
+The credential profiles, SecretRefs, `profile list`, and `config path` documented below require a release containing this migration; they are unavailable in the published 0.1.0 through 0.1.2 releases.
 Until that release, use a source checkout containing this change:
 
 ```sh
@@ -76,33 +76,23 @@ ldap-axi user list --profile work --limit 10
 A live `auth status` performs one bind, so failed credentials can affect account lockout counters.
 Use a directory account with read access only.
 
-A password field accepts exactly one SecretRef: `{"env":"NAME"}` or `{"file":"/absolute/path"}`.
-Omitting `bindPassword` defaults its reference to `LDAP_AXI_BIND_PASSWORD`.
-A file reference reads UTF-8, removes a leading BOM and trailing whitespace, and requires a regular, non-symlink file owned by the current uid with no group or other permission bits on POSIX (`0600` or `0400`).
-Windows file references must use an absolute drive path; UNC and device paths are rejected.
+A password can also use a file SecretRef, such as `{"file":"/absolute/path/password"}`; use an absolute drive path on Windows.
+Keep password files private (`0600` or `0400` on POSIX).
+See [the credential contract](docs/design/v1.md#111-credential-standard-profiles-and-secretrefs) for reference defaults, file decoding, and accepted paths, and [file provenance](docs/design/v1.md#113-file-provenance-checks-and-the-windows-gap-stated-honestly) for the enforced checks.
 Inline passwords, stored secrets, password flags, and credentials in LDAP URLs are refused.
 ldap-axi does not store passwords or implement `auth login`.
 
 **Windows exception to the credential standard:** runtime subprocesses and platform tools are forbidden by ldap-axi's architecture, so it cannot verify DACLs using PowerShell or `icacls`.
 The operator must restrict file and directory ACLs to the owning account.
-`auth status` reports password-file permissions as `unchecked (windows)`, never as verified.
+When simple authentication reads a password-file reference, `auth status` reports its permissions as `unchecked (windows)`, never as verified.
 
-Profile selection is `--profile`, `LDAP_AXI_PROFILE`, a complete env profile, `defaultProfile`, then the sole configured profile.
-Several profiles without a selection fail with `PROFILE_AMBIGUOUS`; an empty profiles object fails with `PROFILE_REQUIRED`.
-A file-selected profile ignores env profile fields, except environment variables explicitly named by its SecretRefs.
+See [the credential contract](docs/design/v1.md#111-credential-standard-profiles-and-secretrefs) for profile selection, source isolation, environment fields, and precedence.
 When supplying only `LDAP_AXI_BIND_PASSWORD` for a file profile, select it explicitly with `--profile` or `LDAP_AXI_PROFILE`; an unselected half env credential pair is an error.
-Non-secret flags override the selected profile.
 For an env profile, set `LDAP_AXI_URL` (or pass `--url`), `LDAP_AXI_AUTH=simple`, `LDAP_AXI_BIND_DN`, and `LDAP_AXI_BIND_PASSWORD`.
-Either half of the credential pair is `CREDENTIAL_INCOMPLETE`, with no fallback.
-Other profile fields have corresponding `LDAP_AXI_<SCREAMING_SNAKE_FIELD>` variables, for example `LDAP_AXI_CA_FILE` and `LDAP_AXI_START_TLS`.
-Boolean variables accept only `1`, `true`, `0`, or `false` (case-insensitive).
-`LDAP_AXI_READ_ONLY` is validated, but v1 remains read-only even when it is false.
-`LDAP_AXI_WRITE_LOG` is accepted as a host policy variable; v1 performs no writes and creates no journal.
 
 Legacy top-level config and `credentials.env` formats are never used for authentication.
 See [the migration contract](docs/design/v1.md#111-credential-standard-profiles-and-secretrefs) for when `CONFIG_MOVED` requires conversion to profiles and SecretRefs.
-`LDAP_AXI_CONFIG_FILE` remains a deprecated alias for `LDAP_AXI_CONFIG` for one minor release, with a stderr notice.
-`LDAP_AXI_CREDENTIALS_FILE` identifies only a legacy file for migration detection, never a password source.
+Config-path overrides and the deprecated alias are documented in [config locations](docs/design/v1.md#152-config-and-credential-locations).
 
 For artium-axi, the package ships [axi-credential.schema.json](axi-credential.schema.json) with `bindPassword` marked `x-secret`.
 A host can write a single `artium` profile under private HOME/XDG directories and inject `{"env":"ARTIUM_SECRET_0"}` without translating credentials.
@@ -112,11 +102,11 @@ The artium-axi adapter is delivered separately.
 
 Authentication defaults to `auto`, which uses the ambient Kerberos credential and makes no password fallback.
 It does not open simple-bind password files.
-Use the server's real FQDN and run:
+Use the server's real FQDN and explicitly select GSSAPI when following the earlier simple-bind setup:
 
 ```sh
-ldap-axi auth status --offline --url ldap://dc01.example.test:389
-ldap-axi user list --url ldap://dc01.example.test:389 --limit 10
+ldap-axi auth status --offline --auth gssapi --url ldap://dc01.example.test:389
+ldap-axi user list --auth gssapi --url ldap://dc01.example.test:389 --limit 10
 ```
 
 Plain `ldap://` with GSSAPI negotiates mandatory confidentiality and encrypts every post-bind LDAP message.
@@ -168,8 +158,8 @@ The source fallback also needs node-gyp's prerequisites, including Python.
 See the [support matrix](docs/support-matrix.md) for installation paths and exact support limits.
 
 ```powershell
-ldap-axi auth status --offline --url ldap://dc01.example.test:389
-ldap-axi user list --url ldap://dc01.example.test:389 --limit 10
+ldap-axi auth status --offline --auth gssapi --url ldap://dc01.example.test:389
+ldap-axi user list --auth gssapi --url ldap://dc01.example.test:389 --limit 10
 ```
 
 The same scheme-selected confidentiality and TLS trust rules apply on Windows.
