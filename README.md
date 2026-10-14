@@ -31,11 +31,11 @@ The npm package is `@knowttl/ldap-axi`; the executable remains `ldap-axi`.
 Once published, install it with Node `>=24.11.0`:
 
 ```sh
-npm install --global @knowttl/ldap-axi@0.1.1
+npm install --global @knowttl/ldap-axi@0.1.2
 ldap-axi auth status --offline
 ```
 
-See the [support matrix](docs/support-matrix.md#installing-from-npm-before-native-release-assets-exist) for native installation requirements and the distinction between the 0.1.0 bootstrap and 0.1.1 release packages.
+See the [support matrix](docs/support-matrix.md#installing-from-npm-before-native-release-assets-exist) for native installation requirements and the distinction between bootstrap and tag-workflow packages.
 
 To work from a source checkout, install dependencies and run the required local gate:
 
