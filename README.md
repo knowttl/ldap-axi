@@ -7,18 +7,17 @@ Active Directory and generic LDAPv3 are both first-class targets, and the tool r
 
 ## Install
 
-Install the published package with Node 24.11.0 or newer:
+Once 0.1.3 is published, install it with Node 24.11.0 or newer:
 
 ```sh
-npm install --global @knowttl/ldap-axi@0.1.2
+npm install --global @knowttl/ldap-axi@0.1.3
 ldap-axi auth status --offline
 ```
 
 See the [support matrix](docs/support-matrix.md#installing-from-npm-before-native-release-assets-exist) for native installation requirements and the distinction between bootstrap and tag-workflow packages.
 The executable is `ldap-axi`.
-The 0.1.2 release provides eight directory read commands, `auth status`, and the offline home view.
-The credential profiles, SecretRefs, `profile list`, and `config path` documented below require a release containing this migration; they are unavailable in the published 0.1.0 through 0.1.2 releases.
-Until that release, use a source checkout containing this change:
+The credential profiles, SecretRefs, `profile list`, and `config path` documented below require 0.1.3 or newer.
+Until 0.1.3 is published, use a source checkout containing the credential-profile migration:
 
 ```sh
 git clone https://github.com/knowttl/ldap-axi.git
