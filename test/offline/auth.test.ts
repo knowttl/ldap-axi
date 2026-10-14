@@ -187,10 +187,10 @@ test("anonymous is selected only when no authenticated input was selected", asyn
   await rejectsCode(() => selectAuthPlan({ requested: "auto", url: "ldaps://directory.example.test", anonymous: true, authExplicit: true }), "VALIDATION_ERROR");
   await rejectsCode(() => selectAuthPlan({ requested: "auto", url: "ldaps://directory.example.test", anonymous: true, serviceOverride: "ldap/directory.example.test" }), "VALIDATION_ERROR");
 });
-test("auth settings resolve CLI, environment, profile, top-level, then auto", async () => {
+test("CLI auth settings override the selected profile without mixing environment fields", async () => {
   const directory = await mkdtemp(join(tmpdir(), "ldap-axi-auth-"));
   const configFile = join(directory, "config.json");
-  await writeFile(configFile, JSON.stringify({ auth: "gssapi", gssapiService: "ldap/top.example.test", gssapiProtection: "none", profiles: { selected: { auth: "simple", gssapiService: "ldap/profile.example.test", gssapiProtection: "confidentiality" } } }));
+  await writeFile(configFile, JSON.stringify({ version: 1, profiles: { selected: { url: "ldaps://directory.example.test", auth: "gssapi", gssapiService: "ldap/profile.example.test", gssapiProtection: "none" } } }));
   await chmod(configFile, 0o600);
   const names = ["LDAP_AXI_CONFIG_FILE", "LDAP_AXI_CREDENTIALS_FILE", "LDAP_AXI_AUTH", "LDAP_AXI_GSSAPI_SERVICE", "LDAP_AXI_GSSAPI_PROTECTION"] as const;
   const saved = new Map(names.map(name => [name, process.env[name]]));
@@ -199,24 +199,23 @@ test("auth settings resolve CLI, environment, profile, top-level, then auto", as
   delete process.env.LDAP_AXI_AUTH;
   delete process.env.LDAP_AXI_GSSAPI_SERVICE;
   try {
-    assert.deepEqual((await resolveSettings({ profile: "selected" })).auth, "simple");
-    assert.deepEqual((await resolveSettings({ profile: "selected" })).gssapiProtection, "confidentiality");
+    assert.equal((await resolveSettings({ profile: "selected" })).auth, "gssapi");
+    assert.equal((await resolveSettings({ profile: "selected" })).gssapiProtection, "none");
     process.env.LDAP_AXI_AUTH = "auto";
     process.env.LDAP_AXI_GSSAPI_SERVICE = "ldap/env.example.test";
     process.env.LDAP_AXI_GSSAPI_PROTECTION = "none";
-    assert.deepEqual((await resolveSettings({ profile: "selected" })).auth, "auto");
-    assert.deepEqual((await resolveSettings({ profile: "selected" })).gssapiService, "ldap/env.example.test");
-    assert.deepEqual((await resolveSettings({ profile: "selected" })).gssapiProtection, "none");
-    assert.deepEqual((await resolveSettings({ profile: "selected", auth: "simple", gssapiService: "ldap/cli.example.test" })).auth, "simple");
-    assert.deepEqual((await resolveSettings({ profile: "selected", auth: "simple", gssapiService: "ldap/cli.example.test", gssapiProtection: "confidentiality" })).gssapiService, "ldap/cli.example.test");
+    assert.equal((await resolveSettings({ profile: "selected" })).auth, "gssapi");
+    assert.equal((await resolveSettings({ profile: "selected" })).gssapiService, "ldap/profile.example.test");
+    assert.equal((await resolveSettings({ profile: "selected", auth: "auto", gssapiService: "ldap/cli.example.test" })).auth, "auto");
+    assert.equal((await resolveSettings({ profile: "selected", auth: "auto", gssapiService: "ldap/cli.example.test", gssapiProtection: "confidentiality" })).gssapiService, "ldap/cli.example.test");
     assert.deepEqual((await resolveSettings({ profile: "selected", gssapiProtection: "confidentiality" })).gssapiProtection, "confidentiality");
     delete process.env.LDAP_AXI_AUTH;
     delete process.env.LDAP_AXI_GSSAPI_SERVICE;
     delete process.env.LDAP_AXI_GSSAPI_PROTECTION;
-    const topLevel = await resolveSettings({});
-    assert.equal(topLevel.auth, "gssapi");
-    assert.equal(topLevel.gssapiService, "ldap/top.example.test");
-    assert.equal(topLevel.gssapiProtection, "none");
+    const sole = await resolveSettings({});
+    assert.equal(sole.auth, "gssapi");
+    assert.equal(sole.gssapiService, "ldap/profile.example.test");
+    assert.equal(sole.gssapiProtection, "none");
   } finally {
     for (const name of names) {
       const value = saved.get(name);
@@ -228,8 +227,6 @@ test("a half environment credential pair is terminal before the credentials file
   const directory = await mkdtemp(join(tmpdir(), "ldap-axi-half-"));
   const configFile = join(directory, "config.json");
   const credentialsFile = join(directory, "credentials.env");
-  await writeFile(configFile, "{}");
-  await chmod(configFile, 0o600);
   await writeFile(credentialsFile, "LDAP_AXI_BIND_DN=uid=file\nLDAP_AXI_BIND_PASSWORD=pw\n");
   await chmod(credentialsFile, 0o600);
   const names = ["LDAP_AXI_CONFIG_FILE", "LDAP_AXI_CREDENTIALS_FILE", "LDAP_AXI_BIND_DN", "LDAP_AXI_BIND_PASSWORD"] as const;

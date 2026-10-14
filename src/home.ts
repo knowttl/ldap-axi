@@ -7,6 +7,7 @@ export const COMMANDS = [
   "user list", "user show", "user groups",
   "group list", "group show", "group members",
   "auth status",
+  "profile list", "config path",
 ] as const;
 
 export function homeView(bin: string, url: string | undefined, credentialsResolved: boolean): { data: Record<string, unknown>; help: string[] } {

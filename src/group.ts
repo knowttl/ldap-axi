@@ -11,6 +11,7 @@ import { walkHelp, walkMetadata, walkPages } from "./directory/walk.js";
 import { groupListSchema, groupMembersSchema, groupShowSchema, isAdFlavor, selectFields } from "./schema.js";
 import { assertAttributes, requestedAttributes } from "./entry.js";
 import { compact } from "./render.js";
+import type { SecretRedactor } from "./secrets.js";
 
 const MEMBER_COUNT_CAP = 10_000;
 function groupIdentityQuery(identifier: string, ad: boolean): IdentityQuery {
@@ -53,8 +54,8 @@ function computeGroupField(entry: Entry, name: string, ad: boolean): unknown {
     default: return undefined;
   }
 }
-function renderGroupRow(entry: Entry, names: readonly string[], ad: boolean, attributes?: readonly string[]): Record<string, unknown> {
-  const row = { ...compact(Object.fromEntries(names.map(name => [name, computeGroupField(entry, name, ad)]))), ...requestedAttributes(entry, attributes) };
+function renderGroupRow(entry: Entry, names: readonly string[], ad: boolean, attributes?: readonly string[], redactor?: SecretRedactor): Record<string, unknown> {
+  const row = { ...compact(Object.fromEntries(names.map(name => [name, computeGroupField(entry, name, ad)]))), ...requestedAttributes(entry, attributes, redactor) };
   if (names.includes("object_sid") && row.object_sid !== undefined) row.object_sid_raw = first(entry, "objectSid_raw") ?? first(entry, "objectSid");
   if (names.includes("object_guid") && row.object_guid !== undefined) row.object_guid_raw = first(entry, "objectGUID_raw") ?? first(entry, "objectGUID");
   return row;
@@ -62,7 +63,7 @@ function renderGroupRow(entry: Entry, names: readonly string[], ad: boolean, att
 
 export type GroupListOptions = Readonly<{
   base: string; flavor: ServerFlavor; pageSize: number; maxRows?: number; limit?: number; all: boolean; scope: Scope;
-  name?: string; sam?: string; filter?: string; fields?: readonly string[]; attributes?: readonly string[];
+  name?: string; sam?: string; filter?: string; fields?: readonly string[]; attributes?: readonly string[]; redactor?: SecretRedactor;
 }>;
 export async function listGroups(directory: Directory, options: GroupListOptions): Promise<{ data: Record<string, unknown>; help: string[] }> {
   const ad = isAdFlavor(options.flavor);
@@ -82,10 +83,10 @@ export async function listGroups(directory: Directory, options: GroupListOptions
   const all = options.all || options.limit !== undefined;
   const walk = await walkPages(directory, { base: options.base, filter, scope: options.scope, attributes, pageSize: options.pageSize }, { maxRows, all });
   if (walk.entries.length === 0 && !walk.stopReason) return { data: { groups: `0 groups matched under ${options.base}`, note: "an entry hidden by access control is indistinguishable from an absent one" }, help: [] };
-  return { data: { ...walkMetadata(walk), groups: walk.entries.map(entry => renderGroupRow(entry, names, ad, options.attributes)) }, help: walkHelp(walk) };
+  return { data: { ...walkMetadata(walk), groups: walk.entries.map(entry => renderGroupRow(entry, names, ad, options.attributes, options.redactor)) }, help: walkHelp(walk) };
 }
 
-export type GroupShowOptions = Readonly<{ base: string; flavor: ServerFlavor; identifier: string; pageSize: number; fields?: readonly string[]; attributes?: readonly string[] }>;
+export type GroupShowOptions = Readonly<{ base: string; flavor: ServerFlavor; identifier: string; pageSize: number; fields?: readonly string[]; attributes?: readonly string[]; redactor?: SecretRedactor }>;
 export async function showGroup(directory: Directory, options: GroupShowOptions): Promise<{ data: Record<string, unknown>; help: string[] }> {
   const ad = isAdFlavor(options.flavor);
   const schema = groupShowSchema(options.flavor);
@@ -94,7 +95,7 @@ export async function showGroup(directory: Directory, options: GroupShowOptions)
   const attributes = [...new Set([...fieldAttributes, ...(options.attributes ?? [])])];
   const query = groupIdentityQuery(options.identifier, ad);
   const entry = await resolveIdentity(directory, options.identifier, options.base, query, attributes, options.pageSize);
-  const group = renderGroupRow(entry, names, ad, options.attributes);
+  const group = renderGroupRow(entry, names, ad, options.attributes, options.redactor);
   if (names.includes("member_count")) {
     const attribute = membershipAttribute(entry, ad);
     const ranged = await readMultivaluedAttribute(directory, entry.dn, attribute, entry, MEMBER_COUNT_CAP);

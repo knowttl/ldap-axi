@@ -9,6 +9,9 @@ const STATUS_FILE = new URL("../../build/native-status.json", import.meta.url);
 export type NativeProviderStatus = Readonly<{ result: string; detail: string; target?: string; mode?: string }>;
 
 export type AuthStatusInput = Readonly<{
+  profile?: string;
+  configPath?: string;
+  bindPasswordSource?: string;
   url?: string;
   startTls: boolean;
   tlsNoVerify: boolean;
@@ -57,6 +60,10 @@ export async function authStatus(input: AuthStatusInput, directory?: Directory):
   const gssapi = plan?.mode === "gssapi";
   const native = await readNativeStatus();
   const data: Record<string, unknown> = {
+    ...(input.profile ? { profile: input.profile } : {}),
+    ...(input.configPath ? { config: input.configPath } : {}),
+    ...(input.bindPasswordSource ? { bind_password_source: input.bindPasswordSource } : {}),
+    ...(plan?.mode === "simple" ? { configured_bind_dn: plan.credentials!.dn } : {}),
     ...(input.url ? { url: input.url } : {}),
     connection: directory ? "live" : "offline",
     credentials: gssapi && !directory ? "ambient (unchecked)" : credentialsState(input),

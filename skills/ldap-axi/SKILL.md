@@ -23,7 +23,9 @@ A provider, runtime, credential, target, context, TLS, or LDAP failure is termin
 Use `--auth simple` for the existing LDAP simple bind and to preserve a configured service identity.
 Simple authentication never enters the GSSAPI protected path.
 Use `--anonymous` only when anonymous access is explicitly intended.
-Credentials belong in `LDAP_AXI_BIND_DN` and `LDAP_AXI_BIND_PASSWORD` or the protected credentials file, never argv.
+Credentials belong in `LDAP_AXI_BIND_DN` and `LDAP_AXI_BIND_PASSWORD` or a version 1 profile with `bindDn` and a `bindPassword` SecretRef, never argv.
+Profiles live in the platform config directory's `ldap-axi/config.json`; use `config path` and `profile list` to discover them.
+SecretRefs use `{env: NAME}` or `{file: absolutePath}`; password files must be private on POSIX, and Windows ACL permissions are reported unchecked because runtime platform tools are forbidden.
 
 The URL scheme selects the GSSAPI transport and there is no fallback between them.
 Verified LDAPS or StartTLS binds with TLS channel binding and no SASL security layer; plain `ldap://` binds with a mandatory confidentiality layer that wraps every post-bind LDAP message, and needs no `--insecure-plaintext`.

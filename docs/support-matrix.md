@@ -13,6 +13,7 @@ This file is the single status surface for the project; `README.md` states the i
 | `group list`, `group show`, `group members` | Implemented |
 | `computer list`, `computer show` | Planned |
 | `auth status` | Implemented, including the non-connecting `--offline` report |
+| `profile list`, `config path` | Implemented, offline credential-standard configuration discovery |
 | `server`, `setup` | Planned |
 
 Implemented commands cover Active Directory and generic LDAPv3, decoded account state, SID/GUID/FILETIME and
@@ -28,7 +29,7 @@ See `docs/design/v1.md` §1 for what is deferred and why, and §5.4 for the per-
 | `simple` | `--auth simple` | Preserves a configured service identity and never loads the native provider |
 | anonymous | `--anonymous` | Explicit only, never a fallback |
 
-`--gssapi-service` and `LDAP_AXI_GSSAPI_SERVICE` override the host-based service name.
+Service-target overrides and their profile-source isolation follow `docs/design/v1.md` §11.1.
 Use `--tls-max-version 1.2` only for verified LDAPS or StartTLS endpoints that require a TLS 1.2 cap.
 Credential rules, including the never-on-argv guarantee, are in `docs/design/v1.md` §11.
 

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { execFileSync, spawn } from "node:child_process";
-import { existsSync, mkdirSync, symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -86,6 +86,8 @@ async function oversizedServer(): Promise<{ url: string; close: () => void }> {
 }
 
 function verifyCli(packageRoot: string): void {
+  const schema = JSON.parse(readFileSync(resolve(packageRoot, "axi-credential.schema.json"), "utf8"));
+  assert.equal(schema.properties.bindPassword["x-secret"], true);
   const executable = resolve(packageRoot, "../..", ".bin", process.platform === "win32" ? "ldap-axi.cmd" : "ldap-axi");
   const output = execFileSync(executable, ["--help"], {
     encoding: "utf8",
