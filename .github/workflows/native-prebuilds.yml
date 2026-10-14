@@ -154,7 +154,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         shell: pwsh
         run: |
-          $asset = gh api "repos/${env:GITHUB_REPOSITORY}/releases/tags/${env:GITHUB_REF_NAME}" --jq '.assets[] | select(.name == "kerberos-win32-x64.node") | .url'
+          $asset = gh api "repos/${env:GITHUB_REPOSITORY}/releases" --jq ('.[] | select(.tag_name == "' + $env:GITHUB_REF_NAME + '") | .assets[] | select(.name == "kerberos-win32-x64.node") | .url')
           if (-not $asset) { throw "staged Windows prebuild is missing" }
           $env:LDAP_AXI_PACKAGE_ARCHIVE = (Resolve-Path package/*.tgz).Path
           $env:LDAP_AXI_NATIVE_RELEASE_ASSET_URL = $asset
