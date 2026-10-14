@@ -21,7 +21,7 @@ const offlineInput = {
   credentialsPermissions: "not-used" as const,
 };
 const isolatedConfig = (): Record<string, string | undefined> => ({
-  LDAP_AXI_CONFIG_FILE: join(process.cwd(), "test", "nonexistent-config.json"),
+  LDAP_AXI_CONFIG: join(process.cwd(), "test", "nonexistent-config.json"),
   LDAP_AXI_CREDENTIALS_FILE: join(process.cwd(), "test", "nonexistent-credentials.env"),
   LDAP_AXI_URL: undefined,
   LDAP_AXI_BIND_DN: undefined,
@@ -161,12 +161,12 @@ test("the home command renders the noun list through the CLI", async () => {
     const home = await run([], { executable: "/durable/bin/ldap-axi" });
     assert.equal(home.exitCode, 0);
     assert.match(home.stdout, /bin: \/durable\/bin\/ldap-axi/);
-    assert.match(home.stdout, /commands\[9\]:/);
+    assert.match(home.stdout, /commands\[11\]:/);
     assert.match(home.stdout, /auth status/);
   });
 });
 test("the home command does not claim auto auth will use configured simple credentials", async () => {
-  await withEnvironment({ ...isolatedConfig(), LDAP_AXI_BIND_DN: "cn=synthetic", LDAP_AXI_BIND_PASSWORD: "synthetic" }, async () => {
+  await withEnvironment({ ...isolatedConfig(), LDAP_AXI_URL: "ldaps://directory.example.test", LDAP_AXI_BIND_DN: "cn=synthetic", LDAP_AXI_BIND_PASSWORD: "synthetic" }, async () => {
     const home = await run([]);
     assert.match(home.stdout, /credentials: configured for simple auth/);
     assert.match(home.stdout, /auto.*ambient/);
@@ -207,7 +207,7 @@ test("the live smoke script writes redacted evidence for every step of its fixed
   const evidenceFile = join(root, "evidence.json");
   try {
     const result = spawnSync(process.execPath, ["scripts/live-smoke.mjs", "--out", evidenceFile, "--url", "ldap://127.0.0.1:1", "--anonymous", "--insecure-plaintext"], {
-      env: { ...process.env, LDAP_AXI_LIVE: "1", LDAP_AXI_CONFIG_FILE: join(process.cwd(), "test", "nonexistent-config.json"), LDAP_AXI_CREDENTIALS_FILE: join(process.cwd(), "test", "nonexistent-credentials.env") },
+      env: { ...process.env, LDAP_AXI_LIVE: "1", LDAP_AXI_CONFIG: join(process.cwd(), "test", "nonexistent-config.json"), LDAP_AXI_CREDENTIALS_FILE: join(process.cwd(), "test", "nonexistent-credentials.env") },
       encoding: "utf8",
     });
     assert.equal(result.status, 1, result.stderr);
@@ -215,7 +215,7 @@ test("the live smoke script writes redacted evidence for every step of its fixed
     assert.equal(evidence.url_scheme, "ldap");
     assert.deepEqual(evidence.steps.map((step: { step: string }) => step.step), ["home", "auth status (offline)", "auth status", "rootDSE read", "user list", "group list"]);
     assert.equal(evidence.steps[0].exit_code, 0);
-    assert.ok(evidence.steps[0].keys.includes("commands[9]"));
+    assert.ok(evidence.steps[0].keys.includes("commands[11]"));
     assert.equal(evidence.steps[1].exit_code, 0);
     for (const step of evidence.steps.slice(3)) assert.equal(step.error_code, "SERVER_UNREACHABLE");
     const serialized = await readFile(evidenceFile, "utf8");

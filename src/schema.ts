@@ -52,6 +52,7 @@ export function completeSchema(...schemas: readonly CommandSchema[]): CommandSch
 }
 
 const FLAG_HELP: Readonly<Record<string, string>> = {
+  config: "<path> select a credential-standard config file",
   help: "show this help", url: "<ldap[s]://host:port> directory URL", base: "<dn> search base", "start-tls": "upgrade ldap:// using StartTLS",
   "ca-file": "<pem> append a trusted CA", "ca-only": "trust only --ca-file certificates", "tls-no-verify": "disable certificate verification", "tls-max-version": "<1.2> cap verified TLS to TLS 1.2",
   "insecure-plaintext": "allow plaintext LDAP", anonymous: "bind anonymously", profile: "<name> select a saved profile", auth: "<auto|gssapi|simple> authentication selection (default: auto)", "gssapi-service": "<service@fqdn> override the URL-derived GSSAPI service", "gssapi-protection": "<none|confidentiality> required GSSAPI protection; the URL scheme selects it",

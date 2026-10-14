@@ -7,7 +7,7 @@
     "type": "git",
     "url": "git+https://github.com/knowttl/ldap-axi.git"
   },
-  "files": ["dist/src", "skills", "vendor/kerberos", "prebuilds", "scripts/install-native.mjs", "scripts/native-resolution.cjs", "binding.gyp", "README.md", "LICENSE"],
+  "files": ["dist/src", "skills", "vendor/kerberos", "prebuilds", "scripts/install-native.mjs", "scripts/native-resolution.cjs", "binding.gyp", "axi-credential.schema.json", "README.md", "LICENSE"],
   "type": "module",
   "exports": {
     ".": {

@@ -215,7 +215,7 @@ export async function selectAuthPlan(input: AuthPlannerInput): Promise<AuthPlan>
 
   if (requested === "simple") {
     if (input.protection !== undefined && input.protection !== "none") throw new CliError("VALIDATION_ERROR", "GSSAPI protection applies only to GSSAPI authentication");
-    if (!input.credentials) throw new CliError("AUTH_REQUIRED", "simple authentication requires a complete simple-bind credential", ["Set LDAP_AXI_BIND_DN and LDAP_AXI_BIND_PASSWORD, or use the protected credentials file"]);
+    if (!input.credentials) throw new CliError("AUTH_REQUIRED", "simple authentication requires a complete simple-bind credential", ["Set LDAP_AXI_BIND_DN and LDAP_AXI_BIND_PASSWORD, or select a profile with bindDn and a bindPassword SecretRef"]);
     return immutablePlan({ requested, mode: "simple", credentials: input.credentials, credentialSource: input.credentialSource, protection: "none" });
   }
 

@@ -60,16 +60,16 @@ test("TLS maximum version accepts only the explicit TLS 1.2 cap before connectio
   rejects(["entry", "search", "--tls-max-version", "TLSv1.2"]);
 });
 test("TLS maximum version resolves from config-shaped settings", async () => {
-  const previousConfig = process.env.LDAP_AXI_CONFIG_FILE;
+  const previousConfig = process.env.LDAP_AXI_CONFIG;
   const previousCredentials = process.env.LDAP_AXI_CREDENTIALS_FILE;
   const previousTlsMaxVersion = process.env.LDAP_AXI_TLS_MAX_VERSION;
-  process.env.LDAP_AXI_CONFIG_FILE = `${process.cwd()}/test/nonexistent-config.json`;
+  process.env.LDAP_AXI_CONFIG = `${process.cwd()}/test/nonexistent-config.json`;
   process.env.LDAP_AXI_CREDENTIALS_FILE = `${process.cwd()}/test/nonexistent-credentials.env`;
   delete process.env.LDAP_AXI_TLS_MAX_VERSION;
   try {
     assert.equal((await resolveSettings({ url: "ldaps://directory.example.test", tlsMaxVersion: "1.2" })).tlsMaxVersion, "1.2");
   } finally {
-    if (previousConfig === undefined) delete process.env.LDAP_AXI_CONFIG_FILE; else process.env.LDAP_AXI_CONFIG_FILE = previousConfig;
+    if (previousConfig === undefined) delete process.env.LDAP_AXI_CONFIG; else process.env.LDAP_AXI_CONFIG = previousConfig;
     if (previousCredentials === undefined) delete process.env.LDAP_AXI_CREDENTIALS_FILE; else process.env.LDAP_AXI_CREDENTIALS_FILE = previousCredentials;
     if (previousTlsMaxVersion === undefined) delete process.env.LDAP_AXI_TLS_MAX_VERSION; else process.env.LDAP_AXI_TLS_MAX_VERSION = previousTlsMaxVersion;
   }
@@ -122,11 +122,11 @@ test("URL userinfo is rejected before transport warnings are emitted", async () 
   assert.doesNotMatch(result.stdout, /bind-dn|password/);
 });
 test("a plaintext warning survives connection failure", async () => {
-  const previousConfig = process.env.LDAP_AXI_CONFIG_FILE;
+  const previousConfig = process.env.LDAP_AXI_CONFIG;
   const previousCredentials = process.env.LDAP_AXI_CREDENTIALS_FILE;
   const previousDn = process.env.LDAP_AXI_BIND_DN;
   const previousPassword = process.env.LDAP_AXI_BIND_PASSWORD;
-  process.env.LDAP_AXI_CONFIG_FILE = `${process.cwd()}/test/nonexistent-config.json`;
+  process.env.LDAP_AXI_CONFIG = `${process.cwd()}/test/nonexistent-config.json`;
   process.env.LDAP_AXI_CREDENTIALS_FILE = `${process.cwd()}/test/nonexistent-credentials.env`;
   delete process.env.LDAP_AXI_BIND_DN;
   delete process.env.LDAP_AXI_BIND_PASSWORD;
@@ -135,7 +135,7 @@ test("a plaintext warning survives connection failure", async () => {
     assert.notEqual(result.exitCode, 0);
     assert.equal(result.stderr, "warning: bind credentials and queries are sent in cleartext over plaintext LDAP\n");
   } finally {
-    if (previousConfig === undefined) delete process.env.LDAP_AXI_CONFIG_FILE; else process.env.LDAP_AXI_CONFIG_FILE = previousConfig;
+    if (previousConfig === undefined) delete process.env.LDAP_AXI_CONFIG; else process.env.LDAP_AXI_CONFIG = previousConfig;
     if (previousCredentials === undefined) delete process.env.LDAP_AXI_CREDENTIALS_FILE; else process.env.LDAP_AXI_CREDENTIALS_FILE = previousCredentials;
     if (previousDn === undefined) delete process.env.LDAP_AXI_BIND_DN; else process.env.LDAP_AXI_BIND_DN = previousDn;
     if (previousPassword === undefined) delete process.env.LDAP_AXI_BIND_PASSWORD; else process.env.LDAP_AXI_BIND_PASSWORD = previousPassword;
@@ -151,10 +151,10 @@ test("the URL scheme selects the GSSAPI transport rather than refusing plaintext
 });
 test("the home command rejects configured URL credentials without rendering them", async () => {
   const previousUrl = process.env.LDAP_AXI_URL;
-  const previousConfig = process.env.LDAP_AXI_CONFIG_FILE;
+  const previousConfig = process.env.LDAP_AXI_CONFIG;
   const previousCredentials = process.env.LDAP_AXI_CREDENTIALS_FILE;
   process.env.LDAP_AXI_URL = "ldaps://bind-dn:password@example.test";
-  process.env.LDAP_AXI_CONFIG_FILE = `${process.cwd()}/test/nonexistent-config.json`;
+  process.env.LDAP_AXI_CONFIG = `${process.cwd()}/test/nonexistent-config.json`;
   process.env.LDAP_AXI_CREDENTIALS_FILE = `${process.cwd()}/test/nonexistent-credentials.env`;
   try {
     const result = await run([]);
@@ -163,7 +163,7 @@ test("the home command rejects configured URL credentials without rendering them
     assert.doesNotMatch(result.stdout, /bind-dn|password/);
   } finally {
     if (previousUrl === undefined) delete process.env.LDAP_AXI_URL; else process.env.LDAP_AXI_URL = previousUrl;
-    if (previousConfig === undefined) delete process.env.LDAP_AXI_CONFIG_FILE; else process.env.LDAP_AXI_CONFIG_FILE = previousConfig;
+    if (previousConfig === undefined) delete process.env.LDAP_AXI_CONFIG; else process.env.LDAP_AXI_CONFIG = previousConfig;
     if (previousCredentials === undefined) delete process.env.LDAP_AXI_CREDENTIALS_FILE; else process.env.LDAP_AXI_CREDENTIALS_FILE = previousCredentials;
   }
 });

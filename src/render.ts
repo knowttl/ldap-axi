@@ -3,8 +3,19 @@ import { CliError } from "./core.js";
 
 function quote(value: string): string { return JSON.stringify(value); }
 export function render(value: Record<string, unknown>, help: readonly string[] = []): string {
-  const body = encode(value).trimEnd();
+  const body = encode(redactPayload(value)).trimEnd();
   return `${body}${help.length ? `\nhelp[${help.length}]: ${help.map(quote).join(",")}` : ""}\n`;
+}
+function redactPayload(value: unknown): unknown {
+  if (typeof value === "string") return value
+    .replace(/-----BEGIN (?:[A-Z]+ )*PRIVATE KEY-----[\s\S]*?-----END (?:[A-Z]+ )*PRIVATE KEY-----/g, "[REDACTED]")
+    .replace(/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g, "[REDACTED]")
+    .replace(/(\bAccountKey=)[^;\s]+/gi, "$1[REDACTED]")
+    .replace(/([?&]sig=)[^&\s]+/gi, "$1[REDACTED]");
+  if (Array.isArray(value)) return value.map(redactPayload);
+  if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([key, child]) => [key,
+    /^(?:password|secret|client[_-]?secret|token|access[_-]?token|refresh[_-]?token|authorization|private[_-]?key|accountkey|sas[_-]?token)$/i.test(key) ? "[REDACTED]" : redactPayload(child)]));
+  return value;
 }
 export function renderError(error: unknown): { stdout: string; stderr: string; exitCode: number } {
   const known = error instanceof CliError ? error : new CliError("UNKNOWN", "an unexpected error occurred");

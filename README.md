@@ -5,30 +5,9 @@ An agent-facing CLI for reading LDAP directories from the shell, built to the
 
 Active Directory and generic LDAPv3 are both first-class targets, and the tool runs on Linux and Windows.
 
-## Status: stage 2 plus Phase B ambient GSSAPI authentication and `auth status`
+## Install
 
-Eight read commands ship - `entry search`, `entry show`, `user list`, `user show`, `user groups`, `group list`,
-`group show`, `group members` - for both Active Directory and generic LDAPv3, plus the `auth status`
-diagnostic and the home view.
-`computer`, `server`, and `setup` are planned.
-Authentication defaults to `auto`, which makes one ambient GSSAPI/SSPI attempt and never silently selects a
-configured password; `--auth simple` preserves a configured service identity and never loads the native
-provider.
-The URL scheme selects the GSSAPI transport with no fallback: verified LDAPS or StartTLS binds with channel
-binding and no SASL security layer, while plain `ldap://` binds with a mandatory confidentiality layer that
-wraps every post-bind LDAP PDU.
-The optional native provider is built from the in-repository `kerberos@7.0.0` source, is supported only on
-Linux glibc x64 and Windows x64, and reports its absence as `GSSAPI_UNAVAILABLE` rather than failing the tool.
-Offline tests do not prove ticket acquisition, AD wire acceptance, Windows SSPI behavior, server
-security-layer acceptance, channel-binding agreement, protected-transport interoperability, or Who Am I
-identity.
-
-**[`docs/support-matrix.md`](docs/support-matrix.md) is the full status surface**: command states, platform and
-native-provider matrix, Linux runtime-library requirements including the Nix/WSL `LD_LIBRARY_PATH` hazard,
-release provenance, and what is proved versus unproved.
-
-The npm package is `@knowttl/ldap-axi`; the executable remains `ldap-axi`.
-Once published, install it with Node `>=24.11.0`:
+Install the published package with Node 24.11.0 or newer:
 
 ```sh
 npm install --global @knowttl/ldap-axi@0.1.2
@@ -36,60 +15,163 @@ ldap-axi auth status --offline
 ```
 
 See the [support matrix](docs/support-matrix.md#installing-from-npm-before-native-release-assets-exist) for native installation requirements and the distinction between bootstrap and tag-workflow packages.
+The executable is `ldap-axi`.
+Eight directory read commands ship, plus `auth status`, `profile list`, `config path`, and the offline home view.
+See [the support matrix](docs/support-matrix.md) for command status, supported platforms, native-provider installation, release provenance, and proved versus unproved behavior.
+The [v1 design](docs/design/v1.md) defines the read-only boundary and command contracts.
 
-To work from a source checkout, install dependencies and run the required local gate:
+## Simple-bind credentials
+
+ldap-axi uses the AXI credential-standard version 1 profile format.
+Run `ldap-axi config path` to find the file.
+On Linux it is `$XDG_CONFIG_HOME/ldap-axi/config.json` when XDG_CONFIG_HOME is absolute, otherwise `~/.config/ldap-axi/config.json`.
+On Windows it is `%APPDATA%\ldap-axi\config.json`; XDG variables are ignored.
+There is no configuration discovery from the working directory.
+Use `--config <path>` or `LDAP_AXI_CONFIG` to select another file.
+
+Create the config directory with mode `0700` and the config file with mode `0600` on POSIX.
+This retains ldap-axi's stricter private-config rule.
+A synthetic example:
+
+```json
+{
+  "version": 1,
+  "defaultProfile": "work",
+  "profiles": {
+    "work": {
+      "url": "ldaps://dc01.example.test:636",
+      "auth": "simple",
+      "bindDn": "uid=reader,dc=example,dc=test",
+      "bindPassword": { "env": "LDAP_AXI_BIND_PASSWORD" },
+      "caFile": "/absolute/path/corporate-root.pem"
+    }
+  }
+}
+```
+
+Supply the referenced password variable through your secret manager or a secure terminal prompt, then run:
+
+```sh
+ldap-axi profile list
+ldap-axi auth status --offline --profile work
+ldap-axi user list --profile work --limit 10
+```
+
+`auth status --offline` reports selection and provenance without connecting or binding.
+A live `auth status` performs one bind, so failed credentials can affect account lockout counters.
+Use a directory account with read access only.
+
+A password field accepts exactly one SecretRef: `{"env":"NAME"}` or `{"file":"/absolute/path"}`.
+Omitting `bindPassword` defaults its reference to `LDAP_AXI_BIND_PASSWORD`.
+A file reference reads UTF-8, removes a leading BOM and trailing whitespace, and requires a regular, non-symlink file owned by the current uid with no group or other permission bits on POSIX (`0600` or `0400`).
+Windows file references must use an absolute drive path; UNC and device paths are rejected.
+Inline passwords, stored secrets, password flags, and credentials in LDAP URLs are refused.
+ldap-axi does not store passwords or implement `auth login`.
+
+**Windows exception to the credential standard:** runtime subprocesses and platform tools are forbidden by ldap-axi's architecture, so it cannot verify DACLs using PowerShell or `icacls`.
+The operator must restrict file and directory ACLs to the owning account.
+`auth status` reports password-file permissions as `unchecked (windows)`, never as verified.
+
+Profile selection is `--profile`, `LDAP_AXI_PROFILE`, a complete env profile, `defaultProfile`, then the sole configured profile.
+Several profiles without a selection fail with `PROFILE_AMBIGUOUS`; an empty profiles object fails with `PROFILE_REQUIRED`.
+A file-selected profile ignores env profile fields, except environment variables explicitly named by its SecretRefs.
+When supplying only `LDAP_AXI_BIND_PASSWORD` for a file profile, select it explicitly with `--profile` or `LDAP_AXI_PROFILE`; an unselected half env credential pair is an error.
+Non-secret flags override the selected profile.
+For an env profile, set `LDAP_AXI_URL` (or pass `--url`), `LDAP_AXI_AUTH=simple`, `LDAP_AXI_BIND_DN`, and `LDAP_AXI_BIND_PASSWORD`.
+Either half of the credential pair is `CREDENTIAL_INCOMPLETE`, with no fallback.
+Other profile fields have corresponding `LDAP_AXI_<SCREAMING_SNAKE_FIELD>` variables, for example `LDAP_AXI_CA_FILE` and `LDAP_AXI_START_TLS`.
+Boolean variables accept only `1`, `true`, `0`, or `false` (case-insensitive).
+`LDAP_AXI_READ_ONLY` is validated, but v1 remains read-only even when it is false.
+`LDAP_AXI_WRITE_LOG` is accepted as a host policy variable; v1 performs no writes and creates no journal.
+
+Legacy top-level config and `credentials.env` formats are a hard cut: they are never read as credentials, and `CONFIG_MOVED` explains how to convert them to profiles and SecretRefs.
+`LDAP_AXI_CONFIG_FILE` remains a deprecated alias for `LDAP_AXI_CONFIG` for one minor release, with a stderr notice.
+`LDAP_AXI_CREDENTIALS_FILE` identifies only a legacy file for migration detection, never a password source.
+
+For artium-axi, the package ships [axi-credential.schema.json](axi-credential.schema.json) with `bindPassword` marked `x-secret`.
+A host can write a single `artium` profile under private HOME/XDG directories and inject `{"env":"ARTIUM_SECRET_0"}` without translating credentials.
+The artium-axi adapter is delivered separately.
+
+## Kerberos single sign-on on Linux
+
+Authentication defaults to `auto`, which uses the ambient Kerberos credential and makes no password fallback.
+It does not open simple-bind password files.
+Use the server's real FQDN and run:
+
+```sh
+ldap-axi auth status --offline --url ldap://dc01.example.test:389
+ldap-axi user list --url ldap://dc01.example.test:389 --limit 10
+```
+
+Plain `ldap://` with GSSAPI negotiates mandatory confidentiality and encrypts every post-bind LDAP message.
+It needs no CA file and no `--insecure-plaintext`.
+Verified LDAPS or StartTLS uses TLS channel binding and no SASL security layer, with no transport fallback.
+Simple bind over plaintext still requires explicit `--insecure-plaintext`.
+Use `--auth simple` or a profile with `auth: "simple"` when a configured service identity is required.
+Use `--anonymous` only for an explicitly anonymous invocation.
+
+A Linux SSO host needs:
+
+1. Linux glibc x64, glibc 2.28 or newer, Node 24.11.0 or newer, and the compatible C++ runtime described in the [support matrix](docs/support-matrix.md).
+   musl and arm64 are rejected by design.
+2. Loader-visible `libgssapi_krb5.so.2`, `libkrb5.so.3`, `libk5crypto.so.3`, `libcom_err.so.2`, `libkrb5support.so.0`, and `libkeyutils.so.1`.
+   Debian/Ubuntu supplies these through `libgssapi-krb5-2`; RHEL/Rocky/Fedora uses `krb5-libs`.
+   ldap-axi itself does not require a `kinit` binary.
+   `krb5-user` or `krb5-workstation` is needed only when the operator wants `kinit`/`klist`.
+3. A valid ticket in the default credential cache.
+   Domain-joined hosts using sssd, realmd, or winbind normally obtain a logon TGT.
+   MIT Kerberos resolves FILE, KEYRING, or KCM caches; KCM also needs `sssd-kcm` running.
+   Live verification tested a FILE cache only.
+4. A `krb5.conf` mapping the server hostname to its realm.
+   Joined hosts normally already have this configuration.
+5. A URL using the DC's FQDN matching its `ldap/<fqdn>` SPN.
+   ldap-axi requests `ldap@<url-host>` without its own canonicalization.
+   Avoid aliases, short names, and IP addresses; an IP-literal URL requires `--gssapi-service`.
+   MIT's default `qualify_shortname` was observed to turn `localhost` into `ldap/localhost.@REALM`.
+   Real FQDNs avoid that short-name trap.
+6. For LDAPS or StartTLS, Node must trust the DC certificate.
+   Use `--ca-file /absolute/path/corporate-root.pem`, a profile's `caFile`, or `NODE_EXTRA_CA_CERTS`.
+   Node does not use `/etc/ssl/certs` by default.
+   `--ca-file` appends to Node's roots; `--ca-only` replaces them.
+
+For Nix/WSL, never prepend a whole system library directory to `LD_LIBRARY_PATH`.
+Follow the [support matrix's Kerberos-soname shim instructions](docs/support-matrix.md) to avoid loading an incompatible system libuv into Node.
+Provider or runtime absence is `GSSAPI_UNAVAILABLE`; failures are terminal and never switch to a password.
+
+## Single sign-on on Windows
+
+On Windows x64, ambient authentication uses the signed-in account's SSPI Negotiate context.
+Sign in with a domain account, use the DC's real FQDN, and ensure the machine can reach the directory and domain authentication services.
+The operating system chooses the package within one GSS-SPNEGO exchange; ldap-axi does not assert Kerberos rather than NTLM.
+Windows SSO remains unproven by a live Windows run.
+
+The `@knowttl/ldap-axi@0.1.0` bootstrap package ships only the Linux prebuild and needs a source fallback on Windows.
+Tag-workflow packages pin the Windows prebuild digest and retrieve the binary from the matching versioned GitHub release without requiring MSVC or the Windows SDK.
+If the verified prebuild cannot be installed, automatic mode attempts one source build requiring MSVC and the Windows SDK.
+The source fallback also needs node-gyp's prerequisites, including Python.
+See the [support matrix](docs/support-matrix.md) for installation paths and exact support limits.
+
+```powershell
+ldap-axi auth status --offline --url ldap://dc01.example.test:389
+ldap-axi user list --url ldap://dc01.example.test:389 --limit 10
+```
+
+The same scheme-selected confidentiality and TLS trust rules apply on Windows.
+For LDAPS/StartTLS, supply a trusted CA with `--ca-file C:\certs\corporate-root.pem` or `NODE_EXTRA_CA_CERTS`; keep verification enabled.
+
+## Development
 
 ```sh
 npm install
 npm run verify
 ```
 
-For installation from a GitHub release archive on Windows or Linux, see
-[release installation](docs/support-matrix.md#installing-a-github-release-archive).
+For installation from a GitHub release archive on Windows or Linux, see [release installation](docs/support-matrix.md#installing-a-github-release-archive).
 
-The design is at [`docs/design/v1.md`](docs/design/v1.md), the authority for the command surface, the
-read-only boundary, server-flavor detection, paging, output shape, TLS and credential rules, and the
-client-library decision.
-Every factual claim in it is cited to a source, and the claims marked "verified locally" were proved by
-running code rather than read from documentation.
-
-The required local check set is offline-only, uses wholly synthetic fixtures, and runs through one
-`npm run verify` entry point.
-Authentication selection defaults immediately to `auto` and accepts `--auth auto|gssapi|simple` or
-`LDAP_AXI_AUTH`, with `--gssapi-service` and `LDAP_AXI_GSSAPI_SERVICE` for a host-based service override.
-`--gssapi-protection none|confidentiality` and `LDAP_AXI_GSSAPI_PROTECTION` are accepted only when they name the layer the URL scheme already requires.
-The URL scheme selects the GSSAPI layer: verified LDAPS or StartTLS negotiates no SASL security layer, while plain `ldap://` negotiates a mandatory confidentiality layer.
-`auto` attempts one ambient GSSAPI/SSPI preparation after the selected transport is ready, applying TLS channel binding when TLS is present, and fails terminally when the provider,
-runtime, ambient credential, target, or context is unavailable; it never silently selects the configured password.
-Use `--auth simple` to preserve a configured service identity; simple authentication never enters the GSSAPI protected path.
-Use `--anonymous` only for an explicit anonymous invocation.
-The source package includes a Linux glibc x64 N-API 9 prebuild produced on Rocky Linux 8.10 and verified by its package-pinned SHA-256 digest.
-The Linux prebuild requires glibc 2.28 or newer, a libstdc++ providing GLIBCXX_3.4.25 or newer, compatible Kerberos/GSS runtime libraries, and Node 24.11.0 or newer.
-CI rejects artifacts requiring symbols newer than GLIBC_2.28 or GLIBCXX_3.4.25 and load-tests the same artifact on Node 24.11.0 and the current Node 24 release.
-When a target prebuild is not bundled, installation fetches only the binary from the matching versioned GitHub release and verifies it against the digest pinned inside the published package before loading it.
-Every prebuild retrieval, manifest, digest, or native verification failure is cleaned up and falls back to one source-build attempt in automatic mode; forced prebuild mode fails closed.
-GitHub-hosted native runners build and behavior-test Linux glibc x64 and Windows x64 artifacts and forced-source consumers from the release commit.
-See [release and provenance](docs/support-matrix.md#release-and-provenance) for the tag workflow's publication contract.
-Tagged binaries and the package receive GitHub artifact provenance attestations, but the binaries are not Authenticode or platform-code-signed and package installation does not independently verify the attestation.
-Linux musl, Linux arm64, Windows arm64, and macOS are rejected rather than sent through an unqualified native build.
-The source fallback is supported only on Linux glibc x64 and Windows x64.
-Every Linux native path, including a verified prebuild, requires compatible system Kerberos/GSS runtime libraries.
-Linux source builds additionally need Python, the installed node-gyp dependency, a C++ compiler, and Kerberos/GSS development headers.
-Windows source builds need node-gyp, MSVC, and the Windows SDK.
-node-gyp may download matching Node headers when they are not already cached, so source fallback is not an offline guarantee.
-The root build dependencies add roughly 10 MB unpacked to a clean dependency tree, and the bundled Linux binary adds about 272 KB.
-Explicit simple mode does not load the provider and remains available when native installation fails.
-Offline tests do not prove ticket acquisition, AD wire acceptance, Windows SSPI behavior, server security-layer
-acceptance, channel-binding agreement, protected-transport interoperability, or Who Am I identity.
-The opt-in `npm run test:local-directory` suite needs Linux and Docker and stays outside `npm run verify`.
-See [the local-directory design](docs/design/v1.md#184-the-local-test-directory-is-the-drift-check) for its mocks and isolation rules, and [the support matrix](docs/support-matrix.md#what-is-proved-and-what-is-not) for qualified behavior and remaining limits.
-The manual live smoke script (`npm run smoke:live -- --url ldaps://server:636`) requires a read-only directory
-credential and `LDAP_AXI_LIVE=1`, runs one fixed read-only sequence, writes a redacted evidence file outside
-this repository, stays outside the required check, and never runs automatically.
-
-The captain-authorized native prebuild workflow and the manually dispatched local-directory workflow are the only
-GitHub Actions workflows.
-Neither receives directory credentials, and neither runs a live-directory test.
+The required checks are offline and use synthetic fixtures.
+The opt-in Linux/Docker `npm run test:local-directory` suite stays outside that gate.
+Manual live verification is described in [the design](docs/design/v1.md#19-live-tests-never-in-ci) and is never run automatically.
+Only the native-prebuild and manual local-directory GitHub Actions workflows are authorized; neither receives directory credentials.
 
 ## Read-only
 
