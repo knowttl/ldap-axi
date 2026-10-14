@@ -54,10 +54,9 @@ for (const password of ["password", "source", '"', "line\nbreak"]) test(`offline
   });
 });
 
-test("error messages and help redact secrets before TOON encoding", async () => {
+for (const password of ['synthetic/"\nsecret', "keep?sig=hide&tail"]) test(`error messages and help redact the complete secret ${JSON.stringify(password)}`, async () => {
   await withHome(async home => {
     const passwordFile = join(home.root, "password");
-    const password = 'synthetic/"\nsecret';
     await writeFile(passwordFile, password, { mode: 0o600 });
     await home.save({ work: { ...simple, bindPassword: { file: passwordFile } } });
     const result = await run(["entry", "search", "--config", home.config, "--base", "dc=example,dc=test"], {
@@ -65,6 +64,29 @@ test("error messages and help redact secrets before TOON encoding", async () => 
     });
     assert.equal(result.exitCode, 1);
     assert.equal(result.stdout, 'error: "Missing [REDACTED]"\ncode: SERVER_UNREACHABLE\nhelp[1]: "Inspect [REDACTED]"\n');
+  });
+});
+
+for (const [pattern, password] of [
+  ["SAS", `keep?sig=${"synthetic".repeat(120)}&tail`],
+  ["AccountKey", `keep;AccountKey=${"synthetic".repeat(120)};tail`],
+  ["JWT", `keep eyJhbGciOiJIUzI1NiJ9.${"B".repeat(1200)}.signature tail`],
+  ["PEM", `keep -----BEGIN PRIVATE KEY-----\n${"A".repeat(1200)}\n-----END PRIVATE KEY----- tail`],
+] as const) test(`registered passwords containing ${pattern} are fully redacted before truncation`, async () => {
+  await withHome(async home => {
+    const passwordFile = join(home.root, "password");
+    await writeFile(passwordFile, password, { mode: 0o600 });
+    await home.save({ work: { ...simple, bindPassword: { file: passwordFile } } });
+    const result = await run(["entry", "search", "--config", home.config, "--base", "dc=example,dc=test", "--attributes", "description,info"], {
+      openDirectory: async () => new RecordedDirectory("ldapv3", [byFilter([], [entry("uid=synthetic", {
+        description: [password, JSON.stringify(password).slice(1, -1), encodeURIComponent(password)],
+        info: [password],
+      })])]),
+    });
+    assert.equal(result.exitCode, 0, result.stdout);
+    assert.match(result.stdout, /description\[3\]: "\[REDACTED\]","\[REDACTED\]","\[REDACTED\]"/);
+    assert.match(result.stdout, /info: "\[REDACTED\]"/);
+    assert.doesNotMatch(result.stdout + result.stderr, /keep|tail|truncated/);
   });
 });
 

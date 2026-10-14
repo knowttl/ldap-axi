@@ -8,12 +8,11 @@ export function render(value: Record<string, unknown>, help: readonly string[] =
   return `${body}${help.length ? `\nhelp[${help.length}]: ${help.map(value => quote(redactText(value, redactor))).join(",")}` : ""}\n`;
 }
 export function redactText(value: string, redactor?: SecretRedactor): string {
-  const redacted = value
+  return (redactor?.text(value) ?? value)
     .replace(/-----BEGIN (?:[A-Z]+ )*PRIVATE KEY-----[\s\S]*?-----END (?:[A-Z]+ )*PRIVATE KEY-----/g, "[REDACTED]")
     .replace(/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g, "[REDACTED]")
     .replace(/(\bAccountKey=)[^;\s]+/gi, "$1[REDACTED]")
     .replace(/([?&]sig=)[^&\s]+/gi, "$1[REDACTED]");
-  return redactor?.text(redacted) ?? redacted;
 }
 function redactPayload(value: unknown, redactor?: SecretRedactor): unknown {
   if (typeof value === "string") return redactText(value, redactor);
