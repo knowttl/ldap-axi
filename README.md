@@ -23,7 +23,7 @@ Until that release, use a source checkout containing this change:
 ```sh
 git clone https://github.com/knowttl/ldap-axi.git
 cd ldap-axi
-git checkout fm/ldap-axi-credstd-artium
+git checkout fm/ldap-axi-credstd-v2
 npm ci
 npm run build
 node dist/src/cli.js config path

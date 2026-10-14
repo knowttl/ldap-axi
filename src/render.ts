@@ -1,19 +1,14 @@
 import { encode } from "@toon-format/toon";
 import { CliError } from "./core.js";
-import type { SecretRedactor } from "./secrets.js";
+import { SecretRedactor } from "./secrets.js";
 
+const patternRedactor = new SecretRedactor();
 function quote(value: string): string { return JSON.stringify(value); }
 export function render(value: Record<string, unknown>, help: readonly string[] = [], redactor?: SecretRedactor): string {
   const body = encode(redactPayload(value, redactor)).trimEnd();
   return `${body}${help.length ? `\nhelp[${help.length}]: ${help.map(value => quote(redactText(value, redactor))).join(",")}` : ""}\n`;
 }
-export function redactText(value: string, redactor?: SecretRedactor): string {
-  return (redactor?.text(value) ?? value)
-    .replace(/-----BEGIN (?:[A-Z]+ )*PRIVATE KEY-----[\s\S]*?-----END (?:[A-Z]+ )*PRIVATE KEY-----/g, "[REDACTED]")
-    .replace(/\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g, "[REDACTED]")
-    .replace(/(\bAccountKey=)[^;\s]+/gi, "$1[REDACTED]")
-    .replace(/([?&]sig=)[^&\s]+/gi, "$1[REDACTED]");
-}
+export function redactText(value: string, redactor = patternRedactor): string { return redactor.text(value); }
 function redactPayload(value: unknown, redactor?: SecretRedactor): unknown {
   if (typeof value === "string") return redactText(value, redactor);
   if (Array.isArray(value)) return value.map(child => redactPayload(child, redactor));

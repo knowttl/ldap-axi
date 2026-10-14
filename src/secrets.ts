@@ -22,16 +22,43 @@ export async function resolveSecret(ref: SecretRef, redactor: SecretRedactor): P
   return value?.trim() ? value : undefined;
 }
 
+// The first capture, when present, is a public label retained outside the protected value.
+const SECRET_PATTERNS = [
+  /-----BEGIN (?:[A-Z]+ )*PRIVATE KEY-----[\s\S]*?-----END (?:[A-Z]+ )*PRIVATE KEY-----/g,
+  /\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g,
+  /(\bAccountKey=)[^;\s]+/gi,
+  /([?&]sig=)[^&\s]+/gi,
+];
+
 /** One invocation owns the registry; resolved credentials never leak through output or errors. */
 export class SecretRedactor {
   private readonly secrets = new Set<string>();
   add(value: string): void {
+    if (!value) return;
     this.secrets.add(value);
     this.secrets.add(JSON.stringify(value).slice(1, -1));
     if (value.isWellFormed()) this.secrets.add(encodeURIComponent(value));
   }
   text(value: string): string {
-    for (const secret of [...this.secrets].sort((a, b) => b.length - a.length)) value = value.split(secret).join("[REDACTED]");
-    return value;
+    const spans: [number, number][] = [];
+    // All matchers see the original input, so neither can destroy the other's evidence.
+    for (const secret of this.secrets) {
+      for (let start = value.indexOf(secret); start !== -1; start = value.indexOf(secret, start + 1)) spans.push([start, start + secret.length]);
+    }
+    for (const pattern of SECRET_PATTERNS) {
+      for (const match of value.matchAll(pattern)) spans.push([match.index + (match[1]?.length ?? 0), match.index + match[0].length]);
+    }
+    const merged: [number, number][] = [];
+    for (const [start, end] of spans.sort((a, b) => a[0] - b[0])) {
+      const previous = merged.at(-1);
+      if (previous && start <= previous[1]) previous[1] = Math.max(previous[1], end);
+      else merged.push([start, end]);
+    }
+    let result = ""; let cursor = 0;
+    for (const [start, end] of merged) {
+      result += value.slice(cursor, start) + "[REDACTED]";
+      cursor = end;
+    }
+    return result + value.slice(cursor);
   }
 }

@@ -90,6 +90,26 @@ for (const [pattern, password] of [
   });
 });
 
+for (const [pattern, password, payload, protectedValue] of [
+  ["SAS", "sig", "https://example.test/?sig=protected-token&x=1", "protected-token"],
+  ["AccountKey", "AccountKey", "AccountKey=protected-token;next=ordinary", "protected-token"],
+  ["JWT", "eyJ", `eyJhbGciOiJIUzI1NiJ9.${"B".repeat(1200)}.signature`, "B".repeat(64)],
+  ["PEM", "PRIVATE KEY", `-----BEGIN PRIVATE KEY-----\n${"A".repeat(1200)}\n-----END PRIVATE KEY-----`, "A".repeat(64)],
+] as const) test(`registered pattern labels do not defeat ${pattern} redaction before truncation`, async () => {
+  await withHome(async home => {
+    const passwordFile = join(home.root, "password");
+    await writeFile(passwordFile, password, { mode: 0o600 });
+    await home.save({ work: { ...simple, bindPassword: { file: passwordFile } } });
+    const result = await run(["entry", "search", "--config", home.config, "--base", "dc=example,dc=test", "--attributes", "description"], {
+      openDirectory: async () => new RecordedDirectory("ldapv3", [byFilter([], [entry("uid=synthetic", { description: [payload] })])]),
+    });
+    assert.equal(result.exitCode, 0, result.stdout);
+    assert.ok(!result.stdout.includes(protectedValue), result.stdout);
+    assert.match(result.stdout, /\[REDACTED\]/);
+    assert.doesNotMatch(result.stdout, /truncated/);
+  });
+});
+
 for (const [command, collection] of [
   [["entry", "search"], "entries"],
   [["entry", "show", "cn=synthetic,dc=example,dc=test"], "entry"],
