@@ -1,0 +1,26 @@
+{
+  "name": "kerberos",
+  "version": "7.0.0",
+  "description": "Vendored Kerberos source embedded in ldap-axi",
+  "main": "lib/index.js",
+  "types": "index.d.ts",
+  "files": ["lib", "src", "binding.gyp", "LICENSE", "UPSTREAM.md", "index.d.ts"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mongodb-js/kerberos.git"
+  },
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "binary": {
+    "napi_versions": [9]
+  },
+  "ldapAxiPatch": {
+    "level": 1,
+    "entry": "lib/ldap-axi-patch.js",
+    "base": "mongodb-js/kerberos v7.0.0",
+    "purpose": "GSS confidentiality result and channel-binding application data",
+    "prebuilds": "verified and installed only by the ldap-axi package root"
+  }
+}

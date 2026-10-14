@@ -1,0 +1,90 @@
+dn: dc=ldapaxi,dc=test
+objectClass: dcObject
+objectClass: organization
+dc: ldapaxi
+o: ldap-axi synthetic directory
+
+dn: ou=people,dc=ldapaxi,dc=test
+objectClass: organizationalUnit
+ou: people
+
+dn: ou=groups,dc=ldapaxi,dc=test
+objectClass: organizationalUnit
+ou: groups
+
+dn: ou=service-accounts,dc=ldapaxi,dc=test
+objectClass: organizationalUnit
+ou: service-accounts
+
+dn: uid=alice,ou=people,dc=ldapaxi,dc=test
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+uid: alice
+cn: Alice Example
+sn: Example
+mail: alice@ldapaxi.test
+uidNumber: 1001
+gidNumber: 5000
+homeDirectory: /home/alice
+loginShell: /bin/sh
+userPassword: @ALICE@
+
+dn: uid=carol,ou=people,dc=ldapaxi,dc=test
+objectClass: inetOrgPerson
+objectClass: posixAccount
+uid: carol
+cn: Carol Example
+sn: Example
+uidNumber: 1002
+gidNumber: 5000
+homeDirectory: /home/carol
+
+dn: uid=ivan,ou=people,dc=ldapaxi,dc=test
+objectClass: inetOrgPerson
+uid: ivan
+cn: Ivan Example
+sn: Example
+
+dn: uid=judy,ou=people,dc=ldapaxi,dc=test
+objectClass: inetOrgPerson
+uid: judy
+cn: Judy Example
+sn: Example
+pwdAccountLockedTime: 000001010000Z
+
+dn: uid=svc-ldapaxi,ou=service-accounts,dc=ldapaxi,dc=test
+objectClass: account
+objectClass: simpleSecurityObject
+uid: svc-ldapaxi
+userPassword: @SVC@
+
+dn: cn=platform,ou=groups,dc=ldapaxi,dc=test
+objectClass: groupOfNames
+cn: platform
+member: uid=carol,ou=people,dc=ldapaxi,dc=test
+
+dn: cn=engineering,ou=groups,dc=ldapaxi,dc=test
+objectClass: groupOfNames
+cn: engineering
+member: uid=alice,ou=people,dc=ldapaxi,dc=test
+member: cn=platform,ou=groups,dc=ldapaxi,dc=test
+
+dn: cn=auditors,ou=groups,dc=ldapaxi,dc=test
+objectClass: groupOfUniqueNames
+cn: auditors
+uniqueMember: uid=alice,ou=people,dc=ldapaxi,dc=test
+uniqueMember: uid=ivan,ou=people,dc=ldapaxi,dc=test#'0101'B
+
+dn: cn=developers,ou=groups,dc=ldapaxi,dc=test
+objectClass: posixGroup
+cn: developers
+gidNumber: 5000
+memberUid: alice
+memberUid: carol
+memberUid: ghost
+
+dn: cn=O'Brien\, Pat team,ou=groups,dc=ldapaxi,dc=test
+objectClass: groupOfNames
+cn: O'Brien, Pat team
+member: uid=alice,ou=people,dc=ldapaxi,dc=test

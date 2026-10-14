@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "release": {
+    "repository": "knowttl/ldap-axi"
+  },
+  "artifacts": {
+    "linux-glibc-x64": {
+      "napi": 9,
+      "patchLevel": 1,
+      "sha256": "1a9173db11be8f37ee34e8cc23171fe39a45e1ecb1c983b02f89dd1b3045fbfd",
+      "bundled": true,
+      "asset": "kerberos-linux-glibc-x64.node"
+    }
+  }
+}

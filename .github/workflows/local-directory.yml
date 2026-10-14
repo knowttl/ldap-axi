@@ -1,0 +1,24 @@
+name: Local directory
+
+# Opt-in only: the ephemeral containerized suites in docs/design/v1.md §18.4,
+# started from the workflow-dispatch button and never on a pull request, push, or schedule.
+# It receives no directory credential and never reaches a real directory (§19).
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  samba-ad-dc:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.11.0
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm run test:local-directory

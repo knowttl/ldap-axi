@@ -1,0 +1,43 @@
+{
+  "name": "@knowttl/ldap-axi",
+  "version": "0.1.1",
+  "description": "Read Active Directory and LDAPv3 directories from the shell",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/knowttl/ldap-axi.git"
+  },
+  "files": ["dist/src", "skills", "vendor/kerberos", "prebuilds", "scripts/install-native.mjs", "scripts/native-resolution.cjs", "binding.gyp", "README.md", "LICENSE"],
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/src/index.js"
+    }
+  },
+  "bin": { "ldap-axi": "dist/src/cli.js" },
+  "engines": { "node": ">=24.11.0" },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "install": "node scripts/install-native.mjs",
+    "prebuild:native:linux": "node scripts/build-native-prebuild.mjs linux-glibc-x64",
+    "prebuild:native:windows": "node scripts/build-native-prebuild.mjs win32-x64",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && npm run prepare-package-test && node --test --test-timeout=300000 dist/test/**/*.test.js",
+    "test:package": "npm run build && npm run prepare-package-test && node --test dist/test/offline/package.test.js",
+    "test:local-directory": "bash scripts/local-directory.sh",
+    "smoke:live": "node scripts/live-smoke.mjs",
+    "prepare-package-test": "node scripts/prepare-package-test.mjs && npm pack --pack-destination .tmp/package-test",
+    "lint": "node scripts/architecture-check.mjs",
+    "verify": "npm run typecheck && npm run lint && npm test"
+  },
+  "dependencies": {
+    "@toon-format/toon": "2.3.1",
+    "ldapts": "9.0.0"
+  },
+  "devDependencies": { "@types/node": "24.10.1", "typescript": "5.9.3" },
+  "optionalDependencies": {
+    "node-addon-api": "8.9.2",
+    "node-gyp": "11.5.0"
+  }
+}

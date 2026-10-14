@@ -1,0 +1,188 @@
+name: Native prebuilds
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [main]
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  linux-build-test:
+    runs-on: ubuntu-22.04
+    container: rockylinux/rockylinux@sha256:f5529992e67440c1a4ae7788244d4381c6909159a88eacd95b7523ae47ced82e
+    steps:
+      - run: dnf install --assumeyes gcc gcc-c++ krb5-devel make python3.11 binutils
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.11.0
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run prebuild:native:linux
+        env:
+          NODE_GYP_FORCE_PYTHON: /usr/bin/python3.11
+      - name: Verify Linux ABI symbol floors
+        shell: bash
+        run: |
+          highest_glibc="$(readelf --version-info prebuilds/linux-glibc-x64/kerberos.node | grep -o 'GLIBC_[0-9.]*' | sort -V | tail -1)"
+          highest_glibcxx="$(readelf --version-info prebuilds/linux-glibc-x64/kerberos.node | grep -o 'GLIBCXX_[0-9.]*' | sort -V | tail -1)"
+          test "$(printf '%s\n' "$highest_glibc" GLIBC_2.28 | sort -V | tail -1)" = GLIBC_2.28
+          test "$(printf '%s\n' "$highest_glibcxx" GLIBCXX_3.4.25 | sort -V | tail -1)" = GLIBCXX_3.4.25
+      - run: npm run test:package
+      - name: Stage release asset
+        run: |
+          mkdir -p release
+          cp prebuilds/linux-glibc-x64/kerberos.node release/kerberos-linux-glibc-x64.node
+          cp prebuilds/linux-glibc-x64/kerberos.node.sha256 release/kerberos-linux-glibc-x64.node.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-glibc-x64
+          path: release/*
+          if-no-files-found: error
+
+  linux-current-load:
+    needs: linux-build-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+      - uses: actions/download-artifact@v4
+        with:
+          name: linux-glibc-x64
+          path: release
+      - name: Load minimum-baseline artifact on current runtime
+        run: node -e "const addon = require('./release/kerberos-linux-glibc-x64.node'); if (addon.definedNapiVersion?.() !== '9' || typeof addon.KerberosClient?.prototype?.wrapWithResult !== 'function' || typeof addon.KerberosClient?.prototype?.unwrapWithResult !== 'function' || typeof addon.KerberosClient?.prototype?.wrapSizeLimit !== 'function') process.exit(1)"
+
+  windows-build-test:
+    runs-on: windows-2022
+    # A bounded job: the whole verify gate must fail loudly rather than hold a runner indefinitely.
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.11.0
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run prebuild:native:windows
+      - run: npm run verify
+      - name: Stage release asset
+        shell: bash
+        run: |
+          mkdir -p release
+          cp prebuilds/win32-x64/kerberos.node release/kerberos-win32-x64.node
+          cp prebuilds/win32-x64/kerberos.node.sha256 release/kerberos-win32-x64.node.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: win32-x64
+          path: release/*
+          if-no-files-found: error
+
+  release-stage:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [linux-current-load, windows-build-test]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.11.0
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run build
+      - uses: actions/download-artifact@v4
+        with:
+          path: release
+          merge-multiple: true
+      - name: Pin release digests in package manifest
+        run: node scripts/assemble-native-release.mjs release
+      - name: Pack release commit
+        run: mkdir -p package && npm pack --pack-destination package
+      - uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            release/*.node
+            package/*.tgz
+      - name: Stage private release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          if draft="$(gh release view "${GITHUB_REF_NAME}" --json isDraft --jq .isDraft 2>/dev/null)"; then
+            test "$draft" = true || { echo "release is already public" >&2; exit 1; }
+          else
+            gh release create "${GITHUB_REF_NAME}" --draft --verify-tag --title "Native prebuilds ${GITHUB_REF_NAME}" --notes "Target-native N-API prebuilds and npm package with GitHub artifact attestations. Native binaries are not platform-code-signed."
+          fi
+          gh release upload "${GITHUB_REF_NAME}" release/* package/*.tgz --clobber
+      - uses: actions/upload-artifact@v4
+        with:
+          name: npm-package
+          path: package/*.tgz
+          if-no-files-found: error
+
+  release-consume:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: release-stage
+    runs-on: windows-2022
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.11.0
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run build
+      - run: node scripts/prepare-package-test.mjs
+      - uses: actions/download-artifact@v4
+        with:
+          name: npm-package
+          path: package
+      - name: Consume privately staged Windows prebuild
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          $asset = gh api "repos/${env:GITHUB_REPOSITORY}/releases/tags/${env:GITHUB_REF_NAME}" --jq '.assets[] | select(.name == "kerberos-win32-x64.node") | .url'
+          if (-not $asset) { throw "staged Windows prebuild is missing" }
+          $env:LDAP_AXI_PACKAGE_ARCHIVE = (Resolve-Path package/*.tgz).Path
+          $env:LDAP_AXI_NATIVE_RELEASE_ASSET_URL = $asset
+          $env:LDAP_AXI_NATIVE_RELEASE_TOKEN = $env:GH_TOKEN
+          node --test --test-name-pattern="compiler-free packed consumers use the verified prebuild" dist/test/offline/package.test.js
+
+  release-publish:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: release-consume
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.11.0
+          registry-url: https://registry.npmjs.org
+      - uses: actions/download-artifact@v4
+        with:
+          name: npm-package
+          path: package
+      - name: Promote tested release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh release edit "${GITHUB_REF_NAME}" --draft=false
+      - name: Publish exact tested npm package with provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish package/*.tgz --access public --provenance
