@@ -37,7 +37,7 @@ The [v1 design](docs/design/v1.md) defines the read-only boundary and command co
 
 ## Simple-bind credentials
 
-ldap-axi uses the AXI credential-standard version 1 profile format.
+ldap-axi uses the version 1 profiles envelope defined in [the credential contract](docs/design/v1.md#111-credential-standard-profiles-and-secretrefs).
 Run `ldap-axi config path` to find the file.
 On Linux it is `$XDG_CONFIG_HOME/ldap-axi/config.json` when XDG_CONFIG_HOME is absolute, otherwise `~/.config/ldap-axi/config.json`.
 On Windows it is `%APPDATA%\ldap-axi\config.json`; XDG variables are ignored.
@@ -99,7 +99,8 @@ Boolean variables accept only `1`, `true`, `0`, or `false` (case-insensitive).
 `LDAP_AXI_READ_ONLY` is validated, but v1 remains read-only even when it is false.
 `LDAP_AXI_WRITE_LOG` is accepted as a host policy variable; v1 performs no writes and creates no journal.
 
-Legacy top-level config and `credentials.env` formats are a hard cut: they are never read as credentials, and `CONFIG_MOVED` explains how to convert them to profiles and SecretRefs.
+Legacy top-level config and `credentials.env` formats are never used for authentication.
+See [the migration contract](docs/design/v1.md#111-credential-standard-profiles-and-secretrefs) for when `CONFIG_MOVED` requires conversion to profiles and SecretRefs.
 `LDAP_AXI_CONFIG_FILE` remains a deprecated alias for `LDAP_AXI_CONFIG` for one minor release, with a stderr notice.
 `LDAP_AXI_CREDENTIALS_FILE` identifies only a legacy file for migration detection, never a password source.
 
@@ -215,16 +216,13 @@ An ldap-axi release that needs directory write access is wrong.
 
 ## Planned v1 surface
 
-Four read nouns - `entry`, `user`, `group`, `computer` - plus `server`, `auth status`, and `setup` helpers.
-`entry search`, `entry show`, `user list`, `user show`, `user groups`, `group list`, `group show`,
-`group members`, and `auth status` are implemented; `computer list`, `computer show`, `server`, and `setup`
-remain planned.
+See [the support matrix](docs/support-matrix.md#command-surface) for implemented and planned commands, including offline configuration discovery.
 
 The design states per command which behavior is flavor-neutral and which is flavor-specific, and every group
 membership result reports whether it is transitive and how it was derived, because a direct-membership answer
 mistaken for a transitive one is a security-relevant error.
 
-See `docs/design/v1.md` §1 for what ships, what is deferred, and why, and §5.4 for the flavor table.
+See `docs/design/v1.md` §1 for scope and deferral rationale, and §5.4 for the flavor table.
 
 ## Relationship to trxo/ldap-mcp
 
