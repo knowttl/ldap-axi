@@ -5,7 +5,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { run } from "../../src/cli.js";
-import { RecordedDirectory, byFilter, entry } from "../support/fixtures.js";
+import { CliError } from "../../src/core.js";
+import { RecordedDirectory, byDn, byFilter, entry } from "../support/fixtures.js";
 
 const endpoint = "ldaps://directory.example.test";
 const ambient = { url: endpoint };
@@ -40,6 +41,61 @@ test("artium's single profile and injected env SecretRef work with an isolated H
     assert.match(result.stdout, /mechanism: simple/);
     assert.match(result.stdout, /configured_bind_dn: uid=synthetic/);
     assert.doesNotMatch(result.stdout + result.stderr, /synthetic-artium-password/);
+  });
+});
+
+for (const password of ["password", "source", '"', "line\nbreak"]) test(`offline auth preserves TOON structure with password ${JSON.stringify(password)}`, async () => {
+  await withHome(async home => {
+    await home.save({ artium: simple });
+    const result = home.cli(undefined, { ARTIUM_SECRET_0: password });
+    assert.equal(result.status, 0, result.stdout);
+    assert.match(result.stdout, /^bind_password_source: "env:ARTIUM_SECRET_0"$/m);
+    assert.match(result.stdout, /^mechanism: simple$/m);
+  });
+});
+
+test("error messages and help redact secrets before TOON encoding", async () => {
+  await withHome(async home => {
+    const passwordFile = join(home.root, "password");
+    const password = 'synthetic/"\nsecret';
+    await writeFile(passwordFile, password, { mode: 0o600 });
+    await home.save({ work: { ...simple, bindPassword: { file: passwordFile } } });
+    const result = await run(["entry", "search", "--config", home.config, "--base", "dc=example,dc=test"], {
+      openDirectory: async () => { throw new CliError("SERVER_UNREACHABLE", `Missing ${password}`, [`Inspect ${password}`]); },
+    });
+    assert.equal(result.exitCode, 1);
+    assert.equal(result.stdout, 'error: "Missing [REDACTED]"\ncode: SERVER_UNREACHABLE\nhelp[1]: "Inspect [REDACTED]"\n');
+  });
+});
+
+for (const [command, collection] of [
+  [["entry", "search"], "entries"],
+  [["entry", "show", "cn=synthetic,dc=example,dc=test"], "entry"],
+  [["user", "list"], "users"],
+  [["user", "show", "cn=synthetic,dc=example,dc=test"], "user"],
+  [["group", "list"], "groups"],
+  [["group", "show", "cn=synthetic,dc=example,dc=test"], "group"],
+] as const) test(`${command.join(" ")} redacts complete attributes before truncation`, async () => {
+  await withHome(async home => {
+    const password = "synthetic-long-password".repeat(60);
+    const passwordFile = join(home.root, "password");
+    await writeFile(passwordFile, password, { mode: 0o600 });
+    await home.save({ work: { ...simple, bindPassword: { file: passwordFile } } });
+    const dn = "cn=synthetic,dc=example,dc=test";
+    const row = entry(dn, {
+      objectClass: ["inetOrgPerson", "groupOfNames"], cn: ["synthetic"],
+      description: [`-----BEGIN PRIVATE KEY-----\n${"A".repeat(1200)}\n-----END PRIVATE KEY-----`, `eyJhbGciOiJIUzI1NiJ9.${"B".repeat(1200)}.signature`, password],
+      info: [password], title: ["ordinary".repeat(150)],
+    });
+    const result = await run([...command, "--config", home.config, "--base", "dc=example,dc=test", "--attributes", "description,info,title"], {
+      openDirectory: async () => new RecordedDirectory("ldapv3", [byDn(dn, row), byFilter([], [row])]),
+    });
+    assert.equal(result.exitCode, 0, result.stdout);
+    assert.match(result.stdout, new RegExp(`^${collection}(?:\\[1\\])?:`, "m"));
+    assert.match(result.stdout, /description\[3\]: "\[REDACTED\]","\[REDACTED\]","\[REDACTED\]"/);
+    assert.match(result.stdout, /info: "\[REDACTED\]"/);
+    assert.ok(result.stdout.includes(`${"ordinary".repeat(100)}… (truncated, 1200 chars total)`));
+    assert.doesNotMatch(result.stdout, /BEGIN PRIVATE KEY|eyJhbGci|synthetic-long-password/);
   });
 });
 

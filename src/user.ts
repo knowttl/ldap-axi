@@ -11,6 +11,7 @@ import { walkHelp, walkMetadata, walkPages } from "./directory/walk.js";
 import { isAdFlavor, selectFields, userGroupsSchema, userListSchema, userShowSchema } from "./schema.js";
 import { assertAttributes, requestedAttributes } from "./entry.js";
 import { compact } from "./render.js";
+import type { SecretRedactor } from "./secrets.js";
 
 const PERMANENT_PASSWORD_LOCK = "000001010000Z";
 
@@ -74,8 +75,8 @@ function computeUserField(entry: Entry, name: string): unknown {
     default: return undefined;
   }
 }
-function renderUserRow(entry: Entry, names: readonly string[], attributes?: readonly string[]): Record<string, unknown> {
-  const row = { ...compact(Object.fromEntries(names.map(name => [name, computeUserField(entry, name)]))), ...requestedAttributes(entry, attributes) };
+function renderUserRow(entry: Entry, names: readonly string[], attributes?: readonly string[], redactor?: SecretRedactor): Record<string, unknown> {
+  const row = { ...compact(Object.fromEntries(names.map(name => [name, computeUserField(entry, name)]))), ...requestedAttributes(entry, attributes, redactor) };
   if (names.includes("object_sid") && row.object_sid !== undefined) row.object_sid_raw = first(entry, "objectSid_raw") ?? first(entry, "objectSid");
   if (names.includes("object_guid") && row.object_guid !== undefined) row.object_guid_raw = first(entry, "objectGUID_raw") ?? first(entry, "objectGUID");
   return row;
@@ -84,7 +85,7 @@ function renderUserRow(entry: Entry, names: readonly string[], attributes?: read
 export type UserListOptions = Readonly<{
   base: string; flavor: ServerFlavor; pageSize: number; maxRows?: number; limit?: number; all: boolean; scope: Scope;
   name?: string; sam?: string; upn?: string; uid?: string; disabled?: boolean; enabled?: boolean; locked?: boolean;
-  filter?: string; fields?: readonly string[]; attributes?: readonly string[];
+  filter?: string; fields?: readonly string[]; attributes?: readonly string[]; redactor?: SecretRedactor;
 }>;
 
 async function requirePasswordPolicySchema(directory: Directory, flag: string, base: string, pageSize: number): Promise<void> {
@@ -139,10 +140,10 @@ export async function listUsers(directory: Directory, options: UserListOptions):
   const uncertain = !ad && options.locked && walk.entries.some(entry => !isPermanentPasswordLock(first(entry, "pwdAccountLockedTime")));
   if (uncertain) stateHelp.push("Timed locks may have expired: the effective pwdLockoutDuration policy is unavailable, so candidates without locked:true have unknown current state");
   if (walk.entries.length === 0 && !walk.stopReason) return { data: { users: `0 users matched under ${options.base}`, note: "an entry hidden by access control is indistinguishable from an absent one" }, help: stateHelp };
-  return { data: { ...walkMetadata(walk), ...(uncertain ? { partial: true, account_state_incomplete: "lockout_policy_unavailable" } : {}), users: walk.entries.map(entry => renderUserRow(entry, names, options.attributes)) }, help: [...walkHelp(walk), ...stateHelp] };
+  return { data: { ...walkMetadata(walk), ...(uncertain ? { partial: true, account_state_incomplete: "lockout_policy_unavailable" } : {}), users: walk.entries.map(entry => renderUserRow(entry, names, options.attributes, options.redactor)) }, help: [...walkHelp(walk), ...stateHelp] };
 }
 
-export type UserShowOptions = Readonly<{ base: string; flavor: ServerFlavor; identifier: string; pageSize: number; fields?: readonly string[]; attributes?: readonly string[] }>;
+export type UserShowOptions = Readonly<{ base: string; flavor: ServerFlavor; identifier: string; pageSize: number; fields?: readonly string[]; attributes?: readonly string[]; redactor?: SecretRedactor }>;
 export async function showUser(directory: Directory, options: UserShowOptions): Promise<{ data: Record<string, unknown>; help: string[] }> {
   const ad = isAdFlavor(options.flavor);
   const schema = userShowSchema(options.flavor);
@@ -151,7 +152,7 @@ export async function showUser(directory: Directory, options: UserShowOptions): 
   const attributes = [...new Set([...fieldAttributes, ...(options.attributes ?? [])])];
   const query = userIdentityQuery(options.identifier, ad);
   const entry = await resolveIdentity(directory, options.identifier, options.base, query, attributes, options.pageSize);
-  const user = renderUserRow(entry, names, options.attributes);
+  const user = renderUserRow(entry, names, options.attributes, options.redactor);
   if (names.includes("last_logon") && "last_logon" in user) user.last_logon_precision = "approximate";
   return { data: { user }, help: [] };
 }

@@ -147,28 +147,28 @@ export async function run(argv: readonly string[], dependencies: RunDependencies
   const redactor = new SecretRedactor();
   const result = await executeRun(argv, dependencies, redactor);
   const deprecated = process.env.LDAP_AXI_CONFIG_FILE !== undefined && process.env.LDAP_AXI_CONFIG === undefined && !argv.includes("--config") && !argv.some(value => value.startsWith("--config="));
-  return { ...result, stdout: redactor.text(result.stdout), stderr: redactor.text(`${deprecated ? "warning: LDAP_AXI_CONFIG_FILE is deprecated for one minor release; use LDAP_AXI_CONFIG\n" : ""}${result.stderr}`) };
+  return { ...result, stderr: redactor.text(`${deprecated ? "warning: LDAP_AXI_CONFIG_FILE is deprecated for one minor release; use LDAP_AXI_CONFIG\n" : ""}${result.stderr}`) };
 }
 async function executeRun(argv: readonly string[], dependencies: RunDependencies, redactor: SecretRedactor): Promise<{ stdout: string; stderr: string; exitCode: number }> {
   const open = dependencies.openDirectory ?? openDirectory;
   let transportWarning = "";
   try {
     const parsed = parse(argv); if (parsed.flags.help) return { stdout: `${help(parsed.command)}\n`, stderr: "", exitCode: 0 };
-    if (parsed.command === "config path") return { stdout: render({ config: paths(str(parsed.flags.config)).config }), stderr: "", exitCode: 0 };
+    if (parsed.command === "config path") return { stdout: render({ config: paths(str(parsed.flags.config)).config }, [], redactor), stderr: "", exitCode: 0 };
     if (parsed.command === "profile list") {
       const loaded = await loadConfig(str(parsed.flags.config));
       const profiles = Object.entries(loaded.config?.profiles ?? {}).map(([name, profile]) => ({ name, url: profile.url, auth: profile.auth ?? "auto" }));
-      return { stdout: render(profiles.length ? { profiles } : { profiles: "0 profiles configured" }, ["Run `ldap-axi auth status --offline --profile <name>` to inspect a profile"]), stderr: "", exitCode: 0 };
+      return { stdout: render(profiles.length ? { profiles } : { profiles: "0 profiles configured" }, ["Run `ldap-axi auth status --offline --profile <name>` to inspect a profile"], redactor), stderr: "", exitCode: 0 };
     }
-    if (parsed.command === "home") { const settings = await resolvedSettings(parsed, redactor); const home = homeView(dependencies.executable ?? process.argv[1], settings.url, settings.credentialsConfigured); return { stdout: render(home.data, home.help), stderr: "", exitCode: 0 }; }
+    if (parsed.command === "home") { const settings = await resolvedSettings(parsed, redactor); const home = homeView(dependencies.executable ?? process.argv[1], settings.url, settings.credentialsConfigured); return { stdout: render(home.data, home.help, redactor), stderr: "", exitCode: 0 }; }
     if (parsed.command === "auth status") {
       const settings = await resolvedSettings(parsed, redactor);
       const plan = settings.url ? await authPlanFor(parsed, settings) : undefined;
       const input = { url: settings.url, startTls: settings.startTls, tlsNoVerify: Boolean(parsed.flags["tls-no-verify"]), caMode: caMode(settings, parsed), authMode: settings.auth, authSource: settings.authSource, plan, credentialSource: settings.credentialSource, credentialsPermissions: settings.credentialsPermissions, profile: settings.profile, configPath: settings.configPath, bindPasswordSource: settings.bindPasswordSource };
-      if (!plan || parsed.flags.offline) { const offline = await authStatus(input); return { stdout: render(offline.data, offline.help), stderr: "", exitCode: 0 }; }
+      if (!plan || parsed.flags.offline) { const offline = await authStatus(input); return { stdout: render(offline.data, offline.help, redactor), stderr: "", exitCode: 0 }; }
       transportWarning = warningFor(settings, parsed);
       const directory = await open(connectOptions(parsed, settings, plan));
-      try { const result = await authStatus(input, directory); return { stdout: render(result.data, result.help), stderr: transportWarning, exitCode: 0 }; }
+      try { const result = await authStatus(input, directory); return { stdout: render(result.data, result.help, redactor), stderr: transportWarning, exitCode: 0 }; }
       finally { await directory.close(); }
     }
     const settings = await resolvedSettings(parsed, redactor);
@@ -179,16 +179,16 @@ async function executeRun(argv: readonly string[], dependencies: RunDependencies
       const limit = parsed.flags.limit ? numberFlag(parsed.flags, "limit", 1) : undefined;
       const scope = (parsed.flags.scope ?? "sub") as Scope;
       let result: { data: Record<string, unknown>; help: string[] };
-      if (parsed.command === "entry search") { if (!["base", "one", "sub"].includes(scope)) throw new CliError("VALIDATION_ERROR", "--scope must be base, one, or sub"); result = await searchEntries(opened.directory, { base: opened.base, filter: typeof parsed.flags.filter === "string" ? parsed.flags.filter : "(objectClass=*)", scope, attributes: typeof parsed.flags.attributes === "string" ? parsed.flags.attributes.split(",") : DEFAULT_ENTRY_ATTRIBUTES, pageSize: opened.pageSize, maxRows, all: Boolean(parsed.flags.all) }); }
-      else if (parsed.command === "entry show") result = await showEntry(opened.directory, parsed.positionals[0], opened.pageSize, list(parsed.flags.attributes) ?? DEFAULT_ENTRY_ATTRIBUTES);
-      else if (parsed.command === "user list") result = await listUsers(opened.directory, { base: opened.base, flavor, pageSize: opened.pageSize, maxRows, limit, all: Boolean(parsed.flags.all), scope, name: str(parsed.flags.name), sam: str(parsed.flags.sam), upn: str(parsed.flags.upn), uid: str(parsed.flags.uid), disabled: Boolean(parsed.flags.disabled), enabled: Boolean(parsed.flags.enabled), locked: Boolean(parsed.flags.locked), filter: str(parsed.flags.filter), fields: list(parsed.flags.fields), attributes: list(parsed.flags.attributes) });
-      else if (parsed.command === "user show") result = await showUser(opened.directory, { base: opened.base, flavor, identifier: parsed.positionals[0], pageSize: opened.pageSize, fields: list(parsed.flags.fields), attributes: list(parsed.flags.attributes) });
+      if (parsed.command === "entry search") { if (!["base", "one", "sub"].includes(scope)) throw new CliError("VALIDATION_ERROR", "--scope must be base, one, or sub"); result = await searchEntries(opened.directory, { base: opened.base, filter: typeof parsed.flags.filter === "string" ? parsed.flags.filter : "(objectClass=*)", scope, attributes: typeof parsed.flags.attributes === "string" ? parsed.flags.attributes.split(",") : DEFAULT_ENTRY_ATTRIBUTES, pageSize: opened.pageSize, maxRows, all: Boolean(parsed.flags.all), redactor }); }
+      else if (parsed.command === "entry show") result = await showEntry(opened.directory, parsed.positionals[0], opened.pageSize, list(parsed.flags.attributes) ?? DEFAULT_ENTRY_ATTRIBUTES, redactor);
+      else if (parsed.command === "user list") result = await listUsers(opened.directory, { base: opened.base, flavor, pageSize: opened.pageSize, maxRows, limit, all: Boolean(parsed.flags.all), scope, name: str(parsed.flags.name), sam: str(parsed.flags.sam), upn: str(parsed.flags.upn), uid: str(parsed.flags.uid), disabled: Boolean(parsed.flags.disabled), enabled: Boolean(parsed.flags.enabled), locked: Boolean(parsed.flags.locked), filter: str(parsed.flags.filter), fields: list(parsed.flags.fields), attributes: list(parsed.flags.attributes), redactor });
+      else if (parsed.command === "user show") result = await showUser(opened.directory, { base: opened.base, flavor, identifier: parsed.positionals[0], pageSize: opened.pageSize, fields: list(parsed.flags.fields), attributes: list(parsed.flags.attributes), redactor });
       else if (parsed.command === "user groups") result = await userGroups(opened.directory, { base: opened.base, flavor, identifier: parsed.positionals[0], pageSize: opened.pageSize, maxRows, nested: Boolean(parsed.flags.nested), fields: list(parsed.flags.fields) });
-      else if (parsed.command === "group list") result = await listGroups(opened.directory, { base: opened.base, flavor, pageSize: opened.pageSize, maxRows, limit, all: Boolean(parsed.flags.all), scope, name: str(parsed.flags.name), sam: str(parsed.flags.sam), filter: str(parsed.flags.filter), fields: list(parsed.flags.fields), attributes: list(parsed.flags.attributes) });
-      else if (parsed.command === "group show") result = await showGroup(opened.directory, { base: opened.base, flavor, identifier: parsed.positionals[0], pageSize: opened.pageSize, fields: list(parsed.flags.fields), attributes: list(parsed.flags.attributes) });
+      else if (parsed.command === "group list") result = await listGroups(opened.directory, { base: opened.base, flavor, pageSize: opened.pageSize, maxRows, limit, all: Boolean(parsed.flags.all), scope, name: str(parsed.flags.name), sam: str(parsed.flags.sam), filter: str(parsed.flags.filter), fields: list(parsed.flags.fields), attributes: list(parsed.flags.attributes), redactor });
+      else if (parsed.command === "group show") result = await showGroup(opened.directory, { base: opened.base, flavor, identifier: parsed.positionals[0], pageSize: opened.pageSize, fields: list(parsed.flags.fields), attributes: list(parsed.flags.attributes), redactor });
       else result = await groupMembers(opened.directory, { base: opened.base, flavor, identifier: parsed.positionals[0], pageSize: opened.pageSize, maxRows, nested: Boolean(parsed.flags.nested), fields: list(parsed.flags.fields) });
-      return { stdout: render({ ...result.data, tls_verified: opened.tlsVerified }, result.help), stderr: transportWarning, exitCode: 0 };
+      return { stdout: render({ ...result.data, tls_verified: opened.tlsVerified }, result.help, redactor), stderr: transportWarning, exitCode: 0 };
     } finally { await opened.directory.close(); }
-  } catch (error) { return { ...renderError(error), stderr: transportWarning }; }
+  } catch (error) { return { ...renderError(error, redactor), stderr: transportWarning }; }
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) run(process.argv.slice(2)).then(result => { process.stdout.write(result.stdout); process.stderr.write(result.stderr); process.exitCode = result.exitCode; });

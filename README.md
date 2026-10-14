@@ -16,7 +16,22 @@ ldap-axi auth status --offline
 
 See the [support matrix](docs/support-matrix.md#installing-from-npm-before-native-release-assets-exist) for native installation requirements and the distinction between bootstrap and tag-workflow packages.
 The executable is `ldap-axi`.
-Eight directory read commands ship, plus `auth status`, `profile list`, `config path`, and the offline home view.
+The published 0.1.0 package provides eight directory read commands, `auth status`, and the offline home view.
+The credential profiles, SecretRefs, `profile list`, and `config path` documented below require a release containing this migration; they are unavailable in 0.1.0.
+Until that release, use a source checkout containing this change:
+
+```sh
+git clone https://github.com/knowttl/ldap-axi.git
+cd ldap-axi
+git checkout fm/ldap-axi-credstd-artium
+npm ci
+npm run build
+node dist/src/cli.js config path
+node dist/src/cli.js profile list
+node dist/src/cli.js auth status --offline
+```
+
+When following the setup below from this checkout, replace `ldap-axi` with `node dist/src/cli.js` and run it from the checkout directory.
 See [the support matrix](docs/support-matrix.md) for command status, supported platforms, native-provider installation, release provenance, and proved versus unproved behavior.
 The [v1 design](docs/design/v1.md) defines the read-only boundary and command contracts.
 
