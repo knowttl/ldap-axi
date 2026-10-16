@@ -7,17 +7,17 @@ Active Directory and generic LDAPv3 are both first-class targets, and the tool r
 
 ## Install
 
-Once 0.1.4 is published, install it with Node 24.11.0 or newer:
+Once 0.1.5 is published, install it with Node 24.11.0 or newer:
 
 ```sh
-npm install --global @knowttl/ldap-axi@0.1.4
+npm install --global @knowttl/ldap-axi@0.1.5
 ldap-axi auth status --offline
 ```
 
 See the [support matrix](docs/support-matrix.md#installing-from-npm-before-native-release-assets-exist) for native installation requirements and the distinction between bootstrap and tag-workflow packages.
 The executable is `ldap-axi`.
 Run `ldap-axi` with no arguments for the offline home view; see [skill installation hints](docs/design/v1.md#141-the-home-view) for its optional agent-host guidance.
-Until 0.1.4 is published, use a source checkout:
+Until 0.1.5 is published, use a source checkout:
 
 ```sh
 git clone https://github.com/knowttl/ldap-axi.git

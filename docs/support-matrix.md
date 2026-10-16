@@ -60,15 +60,15 @@ development headers; Windows source builds need node-gyp, MSVC, and the Windows 
 
 ### Installing a GitHub release archive
 
-Once the tested `v0.1.4` release assets are published, download `knowttl-ldap-axi-0.1.4.tgz` from the
-[GitHub release](https://github.com/knowttl/ldap-axi/releases/tag/v0.1.4), then run the following from the download directory with Node `>=24.11.0`.
+Once the tested `v0.1.5` release assets are published, download `knowttl-ldap-axi-0.1.5.tgz` from the
+[GitHub release](https://github.com/knowttl/ldap-axi/releases/tag/v0.1.5), then run the following from the download directory with Node `>=24.11.0`.
 Use the packaged `.tgz` asset, which contains the release-pinned native digests; GitHub's automatically generated source archives and a source checkout do not contain the Windows release digest.
 
 Windows x64 (PowerShell):
 
 ```powershell
 $env:LDAP_AXI_NATIVE_MODE = 'prebuild'
-npm install --global ./knowttl-ldap-axi-0.1.4.tgz
+npm install --global ./knowttl-ldap-axi-0.1.5.tgz
 Remove-Item Env:LDAP_AXI_NATIVE_MODE
 ldap-axi auth status --offline
 ```
@@ -76,7 +76,7 @@ ldap-axi auth status --offline
 Linux glibc x64:
 
 ```sh
-LDAP_AXI_NATIVE_MODE=prebuild npm install --global ./knowttl-ldap-axi-0.1.4.tgz
+LDAP_AXI_NATIVE_MODE=prebuild npm install --global ./knowttl-ldap-axi-0.1.5.tgz
 ldap-axi auth status --offline
 ```
 
