@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 import test from "node:test";
 import { pathToFileURL } from "node:url";
 
@@ -25,6 +25,12 @@ const cases = [
   { name: "Claude Code project", marker: { CLAUDECODE: "1" }, installed: "repo/work/.claude/skills", hint: false },
   { name: "Claude Code custom user directory", marker: { CLAUDECODE: "1" }, installed: "custom-claude/skills", customClaude: true, hint: false },
   { name: "Claude Code ancestor", marker: { CLAUDECODE: "1" }, installed: "repo/.claude/skills", hint: false },
+  { name: "Claude linked-worktree relative fallback", marker: { CLAUDECODE: "1" }, installed: "main/.claude/skills", linked: true, hint: false },
+  { name: "Claude linked-worktree absolute fallback", marker: { CLAUDECODE: "1" }, installed: "main/.claude/skills", linked: true, absoluteGit: true, hint: false },
+  { name: "Claude linked-worktree root directory disables fallback", marker: { CLAUDECODE: "1" }, installed: "main/.claude/skills", linked: true, rootSkills: true, hint: true },
+  { name: "Claude linked-worktree missing commondir", marker: { CLAUDECODE: "1" }, installed: "main/.claude/skills", linked: true, missingCommon: true, hint: true },
+  { name: "Claude linked-worktree local skill", marker: { CLAUDECODE: "1" }, installed: "repo/work/.claude/skills", linked: true, hint: false },
+  { name: "OpenCode does not use Claude worktree fallback", marker: { OPENCODE: "1" }, installed: "main/.claude/skills", linked: true, hint: true },
   { name: "Claude Code synced user", marker: { CLAUDECODE: "1" }, installed: "home/.claude/skills/synced", hint: false },
   { name: "Claude Code custom synced user", marker: { CLAUDECODE: "1" }, installed: "custom-claude/skills/synced", customClaude: true, hint: false },
   { name: "Codex-only install does not suppress Claude hint", marker: { CLAUDECODE: "1" }, installed: "home/.agents/skills", hint: true },
@@ -69,8 +75,14 @@ test("the no-argument home hints only when the current host lacks its skill", as
     try {
       const cwd = join(root, "repo", "work");
       await mkdir(cwd, { recursive: true });
-      // Worktrees have a .git file rather than a directory.
-      await writeFile(join(root, "repo", ".git"), "gitdir: synthetic\n");
+      // Synthetic metadata exercises worktree lookup without administering real worktrees.
+      const gitDirectory = join(root, "main", ".git", "worktrees", "linked");
+      if (row.linked) {
+        await mkdir(gitDirectory, { recursive: true });
+        if (!row.missingCommon) await writeFile(join(gitDirectory, "commondir"), row.absoluteGit ? join(root, "main", ".git") : "../..\n");
+      }
+      await writeFile(join(root, "repo", ".git"), row.linked ? `gitdir: ${row.absoluteGit ? gitDirectory : relative(join(root, "repo"), gitDirectory)}\n` : "gitdir: synthetic\n");
+      if (row.rootSkills) await mkdir(join(root, "repo", ".claude", "skills"), { recursive: true });
       if (row.installed) {
         const file = join(root, row.installed, "ldap-axi", "SKILL.md");
         await mkdir(dirname(file), { recursive: true });

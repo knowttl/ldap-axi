@@ -1,6 +1,23 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { dirname, isAbsolute, join } from "node:path";
+import { basename, dirname, isAbsolute, join, resolve } from "node:path";
+
+type SkillRoot = Readonly<{ scope: "ancestors" | "cwd" | "user-system" | "worktree-fallback"; path: string }>;
+
+function worktreeSkillInstalled(root: string, skills: string): boolean {
+  if (existsSync(join(root, skills))) return false;
+  try {
+    const gitdir = /^gitdir: (.+)$/m.exec(readFileSync(join(root, ".git"), "utf8"))?.[1].trim();
+    if (!gitdir) return false;
+    const directory = resolve(root, gitdir);
+    const common = readFileSync(join(directory, "commondir"), "utf8").trim();
+    if (!common) return false;
+    const commonDirectory = resolve(directory, common);
+    return basename(commonDirectory) === ".git" && existsSync(join(dirname(commonDirectory), skills, "ldap-axi", "SKILL.md"));
+  } catch {
+    return false;
+  }
+}
 
 export function skillInstallHint(): string | undefined {
   try {
@@ -11,17 +28,18 @@ export function skillInstallHint(): string | undefined {
     const configHome = env.XDG_CONFIG_HOME && isAbsolute(env.XDG_CONFIG_HOME) ? env.XDG_CONFIG_HOME : join(home, ".config");
     const piHome = (env.PI_CODING_AGENT_DIR || join(home, ".pi", "agent")).replace(/^~(?=$|[/\\])/, () => home);
     // Skills CLI destinations: https://github.com/vercel-labs/skills/blob/main/src/agents.ts
-    const hosts = [
+    const hosts: readonly Readonly<{ detected: boolean; roots: readonly SkillRoot[] }>[] = [
       {
         // https://code.claude.com/docs/en/skills
         // https://code.claude.com/docs/en/managed-settings
         // https://code.claude.com/docs/en/env-vars
         detected: env.CLAUDECODE === "1",
-        project: [join(".claude", "skills")],
         roots: [
-          join(claudeHome, "skills"),
-          join(claudeHome, "skills", "synced"),
-          join(process.platform === "darwin" ? "/Library/Application Support/ClaudeCode" : process.platform === "win32" ? "C:/Program Files/ClaudeCode" : "/etc/claude-code", ".claude", "skills"),
+          { scope: "ancestors", path: join(".claude", "skills") },
+          { scope: "worktree-fallback", path: join(".claude", "skills") },
+          { scope: "user-system", path: join(claudeHome, "skills") },
+          { scope: "user-system", path: join(claudeHome, "skills", "synced") },
+          { scope: "user-system", path: join(process.platform === "darwin" ? "/Library/Application Support/ClaudeCode" : process.platform === "win32" ? "C:/Program Files/ClaudeCode" : "/etc/claude-code", ".claude", "skills") },
         ],
       },
       {
@@ -30,23 +48,29 @@ export function skillInstallHint(): string | undefined {
         // https://github.com/anomalyco/opencode/blob/HEAD/packages/core/src/config/discovery.ts
         // https://github.com/anomalyco/opencode/blob/HEAD/packages/core/src/config/plugin/skill.ts
         detected: env.OPENCODE === "1",
-        project: [join(".agents", "skills"), join(".claude", "skills"), ...["skills", "skill"].map(name => join(".opencode", name))],
         roots: [
-          join(home, ".agents", "skills"),
-          join(home, ".claude", "skills"),
+          { scope: "ancestors", path: join(".agents", "skills") },
+          { scope: "ancestors", path: join(".claude", "skills") },
+          ...["skills", "skill"].map(name => ({ scope: "ancestors" as const, path: join(".opencode", name) })),
+          { scope: "user-system", path: join(home, ".agents", "skills") },
+          { scope: "user-system", path: join(home, ".claude", "skills") },
           ...[
             join(configHome, "opencode"),
             ...(env.OPENCODE_CONFIG_DIR ? [env.OPENCODE_CONFIG_DIR] : []),
             process.platform === "darwin" ? "/Library/Application Support/opencode" : process.platform === "win32" ? join(env.ProgramData || "C:/ProgramData", "opencode") : "/etc/opencode",
-          ].flatMap(directory => ["skills", "skill"].map(name => join(directory, name))),
+          ].flatMap(directory => ["skills", "skill"].map(name => ({ scope: "user-system" as const, path: join(directory, name) }))),
         ],
       },
       {
         // https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/src/core/skills.ts
         // https://github.com/badlogic/pi-mono/blob/main/packages/coding-agent/src/config.ts
         detected: env.PI_CODING_AGENT === "true",
-        project: [join(".agents", "skills")],
-        roots: [join(home, ".agents", "skills"), join(piHome, "skills"), join(process.cwd(), ".pi", "skills")],
+        roots: [
+          { scope: "ancestors", path: join(".agents", "skills") },
+          { scope: "cwd", path: join(".pi", "skills") },
+          { scope: "user-system", path: join(home, ".agents", "skills") },
+          { scope: "user-system", path: join(piHome, "skills") },
+        ],
       },
       {
         // https://developers.openai.com/codex/skills
@@ -54,21 +78,26 @@ export function skillInstallHint(): string | undefined {
         // https://github.com/openai/codex/blob/main/codex-rs/skills/src/lib.rs
         // https://github.com/openai/codex/blob/main/codex-rs/config/src/loader/mod.rs
         detected: Boolean(env.CODEX_THREAD_ID || env.CODEX_SESSION_ID),
-        project: [join(".agents", "skills"), join(".codex", "skills")],
         roots: [
-          join(home, ".agents", "skills"),
-          join(codexHome, "skills"),
-          join(codexHome, "skills", ".system"),
-          join(process.platform === "win32" ? join(env.ProgramData || "C:/ProgramData", "OpenAI", "Codex") : "/etc/codex", "skills"),
+          { scope: "ancestors", path: join(".agents", "skills") },
+          { scope: "ancestors", path: join(".codex", "skills") },
+          { scope: "user-system", path: join(home, ".agents", "skills") },
+          { scope: "user-system", path: join(codexHome, "skills") },
+          { scope: "user-system", path: join(codexHome, "skills", ".system") },
+          { scope: "user-system", path: join(process.platform === "win32" ? join(env.ProgramData || "C:/ProgramData", "OpenAI", "Codex") : "/etc/codex", "skills") },
         ],
       },
     ];
     const host = hosts.find(candidate => candidate.detected);
     if (!host) return undefined;
-    if (host.roots.some(directory => existsSync(join(directory, "ldap-axi", "SKILL.md")))) return undefined;
-    for (let directory = process.cwd(); ; directory = dirname(directory)) {
-      if (host.project.some(skills => existsSync(join(directory, skills, "ldap-axi", "SKILL.md")))) return undefined;
-      if (existsSync(join(directory, ".git")) || dirname(directory) === directory) break;
+    const cwd = process.cwd();
+    if (host.roots.some(root => (root.scope === "user-system" || root.scope === "cwd") && existsSync(join(root.scope === "cwd" ? join(cwd, root.path) : root.path, "ldap-axi", "SKILL.md")))) return undefined;
+    for (let directory = cwd; ; directory = dirname(directory)) {
+      if (host.roots.some(root => root.scope === "ancestors" && existsSync(join(directory, root.path, "ldap-axi", "SKILL.md")))) return undefined;
+      if (existsSync(join(directory, ".git")) || dirname(directory) === directory) {
+        if (host.roots.some(root => root.scope === "worktree-fallback" && worktreeSkillInstalled(directory, root.path))) return undefined;
+        break;
+      }
     }
     return "Install the ldap-axi skill: `npx skills add knowttl/ldap-axi --skill ldap-axi`";
   } catch {
