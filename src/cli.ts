@@ -8,6 +8,7 @@ import { openDirectory, validateFilter, type ConnectOptions } from "./directory/
 import { parseAuthMode, parseProtectionRequirement, selectAuthPlan, type AuthPlan } from "./directory/auth.js";
 import { authStatus } from "./auth.js";
 import { homeView } from "./home.js";
+import { skillInstallHint } from "./skill-hint.js";
 import { createKerberosProvider } from "./directory/gssapi.js";
 import { assertAttributes, DEFAULT_ENTRY_ATTRIBUTES, searchEntries, showEntry } from "./entry.js";
 import { render, renderError } from "./render.js";
@@ -160,7 +161,7 @@ async function executeRun(argv: readonly string[], dependencies: RunDependencies
       const profiles = Object.entries(loaded.config?.profiles ?? {}).map(([name, profile]) => ({ name, url: profile.url, auth: profile.auth ?? "auto" }));
       return { stdout: render(profiles.length ? { profiles } : { profiles: "0 profiles configured" }, ["Run `ldap-axi auth status --offline --profile <name>` to inspect a profile"], redactor), stderr: "", exitCode: 0 };
     }
-    if (parsed.command === "home") { const settings = await resolvedSettings(parsed, redactor); const home = homeView(dependencies.executable ?? process.argv[1], settings.url, settings.credentialsConfigured); return { stdout: render(home.data, home.help, redactor), stderr: "", exitCode: 0 }; }
+    if (parsed.command === "home") { const settings = await resolvedSettings(parsed, redactor); const home = homeView(dependencies.executable ?? process.argv[1], settings.url, settings.credentialsConfigured); const hint = argv.length === 0 ? skillInstallHint() : undefined; if (hint) home.help.push(hint); return { stdout: render(home.data, home.help, redactor), stderr: "", exitCode: 0 }; }
     if (parsed.command === "auth status") {
       const settings = await resolvedSettings(parsed, redactor);
       const plan = settings.url ? await authPlanFor(parsed, settings) : undefined;
