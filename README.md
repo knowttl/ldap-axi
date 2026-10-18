@@ -208,9 +208,7 @@ An ldap-axi release that needs directory write access is wrong.
 See [the support matrix](docs/support-matrix.md#command-surface) for implemented and planned commands, including offline configuration discovery.
 
 Read computers with `ldap-axi computer list --limit 100` and `ldap-axi computer show <identifier-or-dn>`.
-AD uses computer objects; identifiers match exact `sAMAccountName` (including a trailing `$` when present) or `cn`, and ambiguous matches require a DN.
-Generic LDAPv3 uses the stated `(objectClass=device)` fallback and exact `cn` identifiers.
-An empty generic list explains the fallback and access-control uncertainty; it does not prove that machine accounts do not exist under other object classes.
+See the design's [computer flavor contract](docs/design/v1.md#54-flavor-neutral-and-flavor-specific-commands-stated-per-command) and [identifier resolution rules](docs/design/v1.md#55-identifier-resolution-for-user-show-group-show-and-computer-show) for AD machine accounts and the generic LDAPv3 device fallback.
 Use `--fields` to select flavor-supported output and `--attributes` to request safe raw attributes.
 Lists read one page by default; use `--all --max-rows <n>` for a bounded walk across pages.
 
