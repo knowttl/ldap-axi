@@ -29,7 +29,9 @@
     "smoke:live": "node scripts/live-smoke.mjs",
     "prepare-package-test": "node scripts/prepare-package-test.mjs && npm pack --pack-destination .tmp/package-test",
     "lint": "node scripts/architecture-check.mjs",
-    "verify": "npm run typecheck && npm run lint && npm test"
+    "skill:generate": "npm run build && node scripts/generate-skill.mjs",
+    "skill:check": "npm run build && node scripts/generate-skill.mjs --check",
+    "verify": "npm run typecheck && npm run lint && npm test && npm run skill:check"
   },
   "dependencies": {
     "@toon-format/toon": "2.3.1",

@@ -17,6 +17,17 @@ ldap-axi auth status --offline
 See the [support matrix](docs/support-matrix.md#installing-from-npm) for native installation requirements and older package limitations.
 The executable is `ldap-axi`.
 Run `ldap-axi` with no arguments for the offline home view; see [skill installation hints](docs/design/v1.md#141-the-home-view) for its optional agent-host guidance.
+Install the optional agent skill without a global binary install:
+
+```sh
+npx skills add knowttl/ldap-axi --skill ldap-axi
+```
+
+The skill provides static read-only command and authentication guidance with `npx -y @knowttl/ldap-axi` examples.
+It contains no local connection or credential state.
+Session hooks and `ldap-axi setup` are deferred; use the no-argument home view directly for the local connection summary.
+Contributors regenerate both committed skill copies with `npm run skill:generate` and check drift with `npm run skill:check`, also included in `npm run verify`.
+
 Use `ldap-axi user --help`, `ldap-axi group --help`, `ldap-axi computer --help`, or `ldap-axi auth --help` to discover subcommands without connecting.
 Leaf help, such as `ldap-axi entry search --help` and `ldap-axi auth status --help`, lists flags, defaults, and usage examples.
 Unknown flags are rejected with exit 2 before connecting or binding.
