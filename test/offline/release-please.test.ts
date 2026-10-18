@@ -19,6 +19,14 @@ async function fixture(pullRequests: PullRequest[] = []) {
       return { parsedContent, content: Buffer.from(parsedContent).toString("base64"), sha: "fixture" };
     },
     async *pullRequestIterator() { yield* pullRequests; },
+    async *releaseIterator() {
+      const pkg = JSON.parse(await readFile("package.json", "utf8"));
+      yield { tagName: `v${pkg.version}`, sha: "b".repeat(40), notes: "previous release" };
+    },
+    async *mergeCommitIterator() {
+      yield { sha: "a".repeat(40), message: "fix: reject invalid filters", files: ["src/cli.ts"] };
+      yield { sha: "b".repeat(40), message: "chore: previous release", files: [] };
+    },
   } as unknown as Scm;
   const manifest = await Manifest.fromManifest(github, "main");
   const strategy = await buildStrategy({ ...manifest.repositoryConfig["."], github, targetBranch: "main" });
@@ -43,7 +51,7 @@ test("a conventional fix plans the next package version and generated changelog"
   assert.match(updates.get("CHANGELOG.md")!.updater.updateContent(undefined), /reject invalid filters/);
 });
 
-test("a merged version PR plans exactly one draft with the package version tag", async () => {
+test("a merged pending version PR plans a draft and blocks subsequent version PRs", async () => {
   const { manifest, strategy } = await fixture();
   const candidate = await strategy.buildReleasePullRequest(parseConventionalCommits([
     { sha: "a".repeat(40), message: "fix: reject invalid filters" },
@@ -61,8 +69,8 @@ test("a merged version PR plans exactly one draft with the package version tag",
   assert.equal(releases[0].tag.toString(), `v${candidate.version}`);
   assert.equal(releases[0].sha, merged.sha);
   assert.equal(releases[0].draft, true);
-  const tagged = await fixture([{ ...merged, labels: ["autorelease: tagged"] }]);
-  assert.deepEqual(await tagged.manifest.buildReleases(), []);
+  assert.equal((await pending.manifest.buildPullRequests()).length, 1);
+  assert.deepEqual(await pending.manifest.createPullRequests(), []);
 });
 
 test("release automation only opens version PRs until native integration is enabled", async () => {
