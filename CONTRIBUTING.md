@@ -32,6 +32,25 @@ Preserve the sealed directory boundary, operation and OID allowlists, one-bind a
 Runtime code must not invoke platform tools or subprocesses.
 The only native build exception is package installation and target-native prebuild production using the pinned build tool.
 
+## Release changes
+
+Use [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) for commits and squash-merge pull request titles, for example `fix: reject invalid filters` or `feat: add server inspection`.
+Use `!` or a `BREAKING CHANGE:` footer for incompatible changes.
+Release Please uses those messages to open a version pull request against `main`, updating `package.json`, `package-lock.json`, `.release-please-manifest.json`, and the generated `CHANGELOG.md` together.
+Do not create or edit `CHANGELOG.md` by hand.
+Review the generated version and notes before merging a release pull request.
+
+See the [release and provenance contract](docs/support-matrix.md#release-and-provenance) for the current automation limits and draft-release publication requirements.
+After the version pull request merges and the native release successfully publishes its matching tag, replace `PR_NUMBER` with that merged pull request's number and run:
+
+```sh
+gh pr edit PR_NUMBER --repo knowttl/ldap-axi --remove-label 'autorelease: pending' --add-label 'autorelease: tagged'
+```
+
+Until this label transition is complete, Release Please blocks subsequent version pull requests even if the tag already exists.
+The next push to `main` can open the next version pull request after the transition.
+Automatic label transition is deferred to the next native release integration change.
+
 ## Compatibility
 
 Deprecated aliases remain available for one minor release before removal.

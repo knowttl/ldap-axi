@@ -1,8 +1,29 @@
 import assert from "node:assert/strict";
-import { readdir } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import { execFileSync } from "node:child_process";
+import { cp, mkdir, readdir, rm, writeFile } from "node:fs/promises";
 import { register } from "node:module";
+import { join, resolve } from "node:path";
 import test from "node:test";
 import { MessageChannel, type MessagePort } from "node:worker_threads";
+
+test("architecture lint admits release automation but rejects additional workflows", async () => {
+  const fixture = resolve(`.tmp/workflow-policy-${randomUUID()}`);
+  try {
+    for (const directory of ["src", "test", "vendor/kerberos", ".github/workflows"]) {
+      await mkdir(join(fixture, directory), { recursive: true });
+    }
+    for (const path of ["package-lock.json", "vendor/kerberos/package.json", "vendor/kerberos/UPSTREAM.md", "prebuilds", "test", ".github/workflows"]) {
+      await cp(path, join(fixture, path), { recursive: true });
+    }
+    const lint = () => execFileSync(process.execPath, [resolve("scripts/architecture-check.mjs")], { cwd: fixture, stdio: "pipe" });
+    assert.doesNotThrow(lint);
+    await writeFile(join(fixture, ".github/workflows/unauthorized.yml"), "name: unauthorized\n");
+    assert.throws(lint, /only the native prebuild, local-directory, and release PR workflows are authorized/);
+  } finally {
+    await rm(fixture, { recursive: true, force: true });
+  }
+});
 
 async function modules(directory: URL): Promise<URL[]> {
   const entries = await readdir(directory, { withFileTypes: true });
