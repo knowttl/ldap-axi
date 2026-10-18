@@ -142,9 +142,11 @@ claim.
 
 ## Release and provenance
 
-Two workflows run in GitHub Actions: the native prebuild workflow and the
-manually dispatched local-directory workflow.
-Neither receives directory credentials, and neither runs a live-directory test.
+Three workflows run in GitHub Actions: native prebuilds, manually dispatched local-directory checks, and release PR automation.
+None receives directory credentials or runs a live-directory test.
+Release Please opens version pull requests from Conventional Commits and owns the generated `CHANGELOG.md`.
+It currently creates no tags or releases; production release automation requires the subsequent native-release integration.
+Release candidates are configured as drafts with exact `v<package-version>` tags.
 On a version tag the native prebuild workflow pins both build-job digests, packs and publishes with npm
 provenance through the configured npm trusted publisher, attests the binaries and the package, and attaches the matching assets to the release.
 After the Windows clean consumer succeeds, the workflow publishes the exact tested archive with `npm publish ./package/*.tgz --access public --provenance`, then promotes the GitHub release from draft to public only if npm publication succeeds.

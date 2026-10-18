@@ -32,6 +32,20 @@ Preserve the sealed directory boundary, operation and OID allowlists, one-bind a
 Runtime code must not invoke platform tools or subprocesses.
 The only native build exception is package installation and target-native prebuild production using the pinned build tool.
 
+## Release changes
+
+Use [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) for commits and squash-merge pull request titles, for example `fix: reject invalid filters` or `feat: add server inspection`.
+Use `!` or a `BREAKING CHANGE:` footer for incompatible changes.
+Release Please uses those messages to open a version pull request against `main`, updating `package.json`, `package-lock.json`, `.release-please-manifest.json`, and the generated `CHANGELOG.md` together.
+Do not create or edit `CHANGELOG.md` by hand.
+Review the generated version and notes before merging a release pull request.
+
+Release automation currently opens pull requests only; merging one does not create a tag, publish an npm package, or publish a GitHub release.
+Tag-to-native-workflow integration must land before enabling production releases.
+The configured release candidate is a draft with an exact `v<package-version>` tag and no component prefix.
+The native workflow owns asset staging, checksum verification, packed-package consumption, npm publication, and final promotion from draft to public.
+Never promote a candidate before those checks and publication succeed.
+
 ## Compatibility
 
 Deprecated aliases remain available for one minor release before removal.

@@ -207,7 +207,7 @@ reviewing any CLI behavior here.
 The native prebuild workflow may build and behavior-test the Linux glibc x64 and Windows x64 provider artifacts, run `npm run verify` on the Windows runner, attest tagged artifacts, and attach them to the matching GitHub release.
 The local-directory workflow runs `docs/design/v1.md` §18.4's suites from a manual workflow dispatch only.
 Neither may ever receive directory credentials or run live-directory tests.
-No other GitHub Actions workflow is authorized, and the architecture lint enforces that list.
+Only these workflows and the release-please workflow, limited to version pull requests on `main` until native-release integration lands, are authorized, and the architecture lint enforces that list.
 
 ## Maintaining this file
 

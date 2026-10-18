@@ -40,8 +40,8 @@ for (const [target, artifact] of Object.entries(prebuildManifest.artifacts)) {
 }
 try {
   const workflows = await readdir(".github/workflows");
-  const authorized = new Set(["native-prebuilds.yml", "local-directory.yml"]);
-  if (workflows.some(file => !authorized.has(file))) throw new Error("only the native prebuild and local-directory workflows are authorized");
+  const authorized = new Set(["native-prebuilds.yml", "local-directory.yml", "release-please.yml"]);
+  if (workflows.some(file => !authorized.has(file))) throw new Error("only the native prebuild, local-directory, and release PR workflows are authorized");
   // node --test exits 0 when --test-name-pattern matches nothing, so a stale name turns a required check into a vacuous pass.
   const titles = new Set();
   for (const file of await files("test")) for (const [, title] of (await readFile(file, "utf8")).matchAll(/^test\("([^"]+)"/gm)) titles.add(title);
