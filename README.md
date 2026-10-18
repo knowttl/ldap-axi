@@ -21,8 +21,7 @@ Use `ldap-axi user --help`, `ldap-axi group --help`, `ldap-axi computer --help`,
 Leaf help, such as `ldap-axi entry search --help` and `ldap-axi auth status --help`, lists flags, defaults, and usage examples.
 Unknown flags are rejected with exit 2 before connecting or binding.
 Run `ldap-axi server --profile <name>` to inspect rootDSE naming contexts, controls, extensions, SASL mechanisms, vendor facts, and advertised limits without selecting a search base.
-The report shows both detected and configured flavor, marks any override explicitly, and omits absent optional facts.
-Policy names do not establish effective limit values; missing values are reported as `not advertised`.
+See [the rootDSE report contract](docs/design/v1.md#51-the-rootdse-probe) for flavor overrides, optional facts, and limit reporting.
 To build from source:
 
 ```sh
