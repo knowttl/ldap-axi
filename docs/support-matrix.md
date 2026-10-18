@@ -144,11 +144,12 @@ claim.
 
 Three workflows run in GitHub Actions: native prebuilds, manually dispatched local-directory checks, and release PR automation.
 None receives directory credentials or runs a live-directory test.
-Release Please opens version pull requests from Conventional Commits and owns the generated `CHANGELOG.md`.
-It currently creates no tags or releases; production release automation requires the subsequent native-release integration.
-Release candidates are configured as drafts with exact `v<package-version>` tags.
+Release Please currently opens version pull requests only; merging one does not create a tag, publish an npm package, or publish a GitHub release.
+Automatic tag creation and native-workflow integration remain deferred.
+See [Release changes](../CONTRIBUTING.md#release-changes) for commit conventions, generated changelog ownership, and the required manual label transition after publication.
+Release candidates are configured as drafts with exact `v<package-version>` tags and no component prefix.
 On a version tag the native prebuild workflow pins both build-job digests, packs and publishes with npm
-provenance through the configured npm trusted publisher, attests the binaries and the package, and attaches the matching assets to the release.
+provenance using the configured `NPM_TOKEN` secret, attests the binaries and the package, and attaches the matching assets to the release.
 After the Windows clean consumer succeeds, the workflow publishes the exact tested archive with `npm publish ./package/*.tgz --access public --provenance`, then promotes the GitHub release from draft to public only if npm publication succeeds.
 If npm publication fails, the GitHub release remains in draft.
 The binaries are not Authenticode or platform-code-signed, and package installation does not independently

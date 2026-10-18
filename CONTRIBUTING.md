@@ -40,7 +40,7 @@ Release Please uses those messages to open a version pull request against `main`
 Do not create or edit `CHANGELOG.md` by hand.
 Review the generated version and notes before merging a release pull request.
 
-Release automation currently opens pull requests only; merging one does not create a tag, publish an npm package, or publish a GitHub release.
+See the [release and provenance contract](docs/support-matrix.md#release-and-provenance) for the current automation limits and draft-release publication requirements.
 After the version pull request merges and the native release successfully publishes its matching tag, replace `PR_NUMBER` with that merged pull request's number and run:
 
 ```sh
@@ -50,10 +50,6 @@ gh pr edit PR_NUMBER --repo knowttl/ldap-axi --remove-label 'autorelease: pendin
 Until this label transition is complete, Release Please blocks subsequent version pull requests even if the tag already exists.
 The next push to `main` can open the next version pull request after the transition.
 Automatic label transition is deferred to the next native release integration change.
-Tag-to-native-workflow integration must land before enabling production releases.
-The configured release candidate is a draft with an exact `v<package-version>` tag and no component prefix.
-The native workflow owns asset staging, checksum verification, packed-package consumption, npm publication, and final promotion from draft to public.
-Never promote a candidate before those checks and publication succeed.
 
 ## Compatibility
 
