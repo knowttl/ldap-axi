@@ -11,7 +11,7 @@ This file is the single status surface for the project; `README.md` states the i
 | `entry search`, `entry show` | Implemented |
 | `user list`, `user show`, `user groups` | Implemented |
 | `group list`, `group show`, `group members` | Implemented |
-| `computer list`, `computer show` | Planned |
+| `computer list`, `computer show` | Implemented: AD computer objects; generic LDAPv3 device fallback, named in output |
 | `auth status` | Implemented, including the non-connecting `--offline` report |
 | `profile list`, `config path` | Implemented, offline credential-standard configuration discovery |
 | `server`, `setup` | Planned |

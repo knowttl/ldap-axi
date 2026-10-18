@@ -161,7 +161,7 @@ test("the home command renders the noun list through the CLI", async () => {
     const home = await run([], { executable: "/durable/bin/ldap-axi" });
     assert.equal(home.exitCode, 0);
     assert.match(home.stdout, /bin: \/durable\/bin\/ldap-axi/);
-    assert.match(home.stdout, /commands\[11\]:/);
+    assert.match(home.stdout, /commands\[13\]:/);
     assert.match(home.stdout, /auth status/);
   });
 });
@@ -215,9 +215,10 @@ test("the live smoke script writes redacted evidence for every step of its fixed
     assert.equal(evidence.url_scheme, "ldap");
     assert.deepEqual(evidence.steps.map((step: { step: string }) => step.step), ["home", "auth status (offline)", "auth status", "rootDSE read", "user list", "group list"]);
     assert.equal(evidence.steps[0].exit_code, 0);
-    assert.ok(evidence.steps[0].keys.includes("commands[11]"));
+    assert.ok(evidence.steps[0].keys.includes("commands[13]"));
     assert.equal(evidence.steps[1].exit_code, 0);
-    for (const step of evidence.steps.slice(3)) assert.equal(step.error_code, "SERVER_UNREACHABLE");
+    // A filtered loopback port can time out instead of refusing the connection.
+    for (const step of evidence.steps.slice(3)) assert.match(step.error_code, /^(SERVER_UNREACHABLE|OPERATION_TIMEOUT)$/);
     const serialized = await readFile(evidenceFile, "utf8");
     assert.doesNotMatch(serialized, /127\.0\.0\.1/);
   } finally { await rm(root, { recursive: true, force: true }); }

@@ -14,5 +14,5 @@ test("generated project skills stay synchronized", async () => {
   const normalizeEol = (value: string): string => value.replace(/\r\n/g, "\n");
   assert.equal(normalizeEol(publicSkill), generated);
   assert.equal(normalizeEol(localSkill), generated);
-  assert.doesNotMatch(generated, /computer list/);
+  assert.match(generated, /computer list/);
 });

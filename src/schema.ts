@@ -75,6 +75,8 @@ const EXAMPLES: Readonly<Record<string, readonly string[]>> = {
   "group list": ["--name Engineering --fields name,dn", "--all --max-rows 2000"],
   "group show": ["engineering --fields name,dn", "cn=engineering,ou=groups,dc=example,dc=test --attributes description"],
   "group members": ["engineering --fields name,dn", "engineering --nested --max-rows 100"],
+  "computer list": ["--name workstation* --fields name,dn", "--all --max-rows 2000"],
+  "computer show": ["workstation --fields name,dn", "cn=workstation,ou=devices,dc=example,dc=test --attributes description"],
 };
 
 export function commandHelp(command: string, ad: CommandSchema, ldapv3: CommandSchema, globalNames: readonly string[]): string {
@@ -88,6 +90,33 @@ export function commandHelp(command: string, ad: CommandSchema, ldapv3: CommandS
 }
 
 const IDENTITY_FLAGS = ["max-rows", "page-size", "limit", "fields", "attributes"] as const;
+
+export function computerListSchema(flavor: ServerFlavor): CommandSchema {
+  const ad = isAdFlavor(flavor);
+  return {
+    summary: "List computers (AD machine accounts; LDAPv3 device fallback).",
+    booleanFlags: ["all"],
+    valueFlags: ["name", "sam", "filter", "scope", ...IDENTITY_FLAGS],
+    fields: ad
+      ? [{ name: "sam", attributes: ["sAMAccountName"] }, { name: "name", attributes: ["cn"] }, { name: "dn", attributes: [] },
+        { name: "dns_host_name", attributes: ["dNSHostName"] }, { name: "enabled", attributes: ["userAccountControl"] }]
+      : [{ name: "name", attributes: ["cn"] }, { name: "dn", attributes: [] }, { name: "description", attributes: ["description"] }],
+    defaultFields: ad ? ["sam", "name", "dns_host_name", "enabled"] : ["name", "dn"],
+  };
+}
+
+export function computerShowSchema(flavor: ServerFlavor): CommandSchema {
+  const ad = isAdFlavor(flavor);
+  const fields: FieldSpec[] = [...computerListSchema(flavor).fields,
+    ...(ad
+      ? [{ name: "operating_system", attributes: ["operatingSystem"] }, { name: "operating_system_version", attributes: ["operatingSystemVersion"] },
+        { name: "last_logon", attributes: ["lastLogonTimestamp"] }, { name: "object_sid", attributes: ["objectSid"] }, { name: "object_guid", attributes: ["objectGUID"] }]
+      : [{ name: "entry_uuid", attributes: ["entryUUID"] }]),
+    { name: "when_created", attributes: [ad ? "whenCreated" : "createTimestamp"] },
+    { name: "when_changed", attributes: [ad ? "whenChanged" : "modifyTimestamp"] },
+  ];
+  return { summary: "Show one computer by DN or exact identifier (AD: sAMAccountName or cn; LDAPv3: cn, using objectClass=device).", booleanFlags: [], valueFlags: ["fields", "attributes"], fields, defaultFields: fields.map(field => field.name) };
+}
 
 export function userListSchema(flavor: ServerFlavor): CommandSchema {
   const ad = isAdFlavor(flavor);

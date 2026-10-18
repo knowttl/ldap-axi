@@ -18,7 +18,8 @@ The CLI is strictly read-only and never exposes a directory mutation operation.
 
 Run \`npx -y @knowttl/ldap-axi\` for the current configured connection summary.
 Run \`npx -y @knowttl/ldap-axi entry search --help\` to inspect safe filter and attribute syntax.
-Use \`npx -y @knowttl/ldap-axi user list\` or \`group list\` for typed reads.
+Use \`npx -y @knowttl/ldap-axi user list\`, \`group list\`, or \`computer list\` for typed reads.
+Computer reads use AD machine accounts or a stated generic LDAPv3 device fallback; use \`computer show <identifier-or-dn>\` for details.
 Run \`npx -y @knowttl/ldap-axi auth status\` to report the selected authentication, or \`auth status --offline\` to report it without binding.
 
 ## Authentication

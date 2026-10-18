@@ -17,7 +17,7 @@ ldap-axi auth status --offline
 See the [support matrix](docs/support-matrix.md#installing-from-npm) for native installation requirements and older package limitations.
 The executable is `ldap-axi`.
 Run `ldap-axi` with no arguments for the offline home view; see [skill installation hints](docs/design/v1.md#141-the-home-view) for its optional agent-host guidance.
-Use `ldap-axi user --help`, `ldap-axi group --help`, or `ldap-axi auth --help` to discover subcommands without connecting.
+Use `ldap-axi user --help`, `ldap-axi group --help`, `ldap-axi computer --help`, or `ldap-axi auth --help` to discover subcommands without connecting.
 Leaf help, such as `ldap-axi entry search --help` and `ldap-axi auth status --help`, lists flags, defaults, and usage examples.
 Unknown flags are rejected with exit 2 before connecting or binding.
 To build from source:
@@ -203,9 +203,16 @@ See `docs/design/v1.md` §0, §1.5, §3, and §4.
 
 An ldap-axi release that needs directory write access is wrong.
 
-## Planned v1 surface
+## v1 command surface
 
 See [the support matrix](docs/support-matrix.md#command-surface) for implemented and planned commands, including offline configuration discovery.
+
+Read computers with `ldap-axi computer list --limit 100` and `ldap-axi computer show <identifier-or-dn>`.
+AD uses computer objects; identifiers match exact `sAMAccountName` (including a trailing `$` when present) or `cn`, and ambiguous matches require a DN.
+Generic LDAPv3 uses the stated `(objectClass=device)` fallback and exact `cn` identifiers.
+An empty generic list explains the fallback and access-control uncertainty; it does not prove that machine accounts do not exist under other object classes.
+Use `--fields` to select flavor-supported output and `--attributes` to request safe raw attributes.
+Lists read one page by default; use `--all --max-rows <n>` for a bounded walk across pages.
 
 The design states per command which behavior is flavor-neutral and which is flavor-specific, and every group
 membership result reports whether it is transitive and how it was derived, because a direct-membership answer

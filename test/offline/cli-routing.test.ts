@@ -16,6 +16,7 @@ test("an unknown top-level command exits 2 without connecting", async () => {
 for (const [group, subcommands] of [
   ["entry", ["search", "show"]], ["user", ["list", "show", "groups"]],
   ["group", ["list", "show", "members"]], ["auth", ["status"]],
+  ["computer", ["list", "show"]],
   ["profile", ["list"]], ["config", ["path"]],
 ] as const) {
   test(`${group} help lists its subcommands without connecting`, async () => {
@@ -75,7 +76,7 @@ test("entry search help explains search and paging defaults", async () => {
   assert.match(result.stdout, /default: one page/);
 });
 
-for (const command of ["user list", "user show", "user groups", "group list", "group show", "group members"]) {
+for (const command of ["user list", "user show", "user groups", "group list", "group show", "group members", "computer list", "computer show"]) {
   test(`${command} help provides two useful parseable examples`, async () => {
     const result = await run([...command.split(" "), "--help"]);
     const examples = result.stdout.split("Examples:\n")[1].trim().split("\n");
