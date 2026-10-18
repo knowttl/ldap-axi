@@ -12,7 +12,7 @@ export const COMMANDS = [
   "group list", "group show", "group members",
   "computer list", "computer show",
   "auth status", "server",
-  "profile list", "config path",
+  "profile list", "config path", "setup",
 ] as const;
 
 export function homeView(bin: string, url: string | undefined, credentialsResolved: boolean): { data: Record<string, unknown>; help: string[] } {

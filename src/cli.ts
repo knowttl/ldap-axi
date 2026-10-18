@@ -10,6 +10,7 @@ import { authStatus } from "./auth.js";
 import { serverReport } from "./server.js";
 import { homeView } from "./home.js";
 import { skillInstallHint } from "./skill-hint.js";
+import { setup, SETUP_HELP } from "./setup.js";
 import { createKerberosProvider } from "./directory/gssapi.js";
 import { assertAttributes, DEFAULT_ENTRY_ATTRIBUTES, searchEntries, showEntry } from "./entry.js";
 import { render, renderError } from "./render.js";
@@ -24,7 +25,7 @@ const commandGroups = {
   computer: ["list", "show"], auth: ["status"], profile: ["list"], config: ["path"],
 } as const;
 type CommandGroup = keyof typeof commandGroups;
-type Command = CommandGroup | "home" | "server" | "entry search" | "entry show" | "user list" | "user show" | "user groups" | "group list" | "group show" | "group members" | "computer list" | "computer show" | "auth status" | "profile list" | "config path";
+type Command = CommandGroup | "home" | "setup" | "server" | "entry search" | "entry show" | "user list" | "user show" | "user groups" | "group list" | "group show" | "group members" | "computer list" | "computer show" | "auth status" | "profile list" | "config path";
 export type RunDependencies = Readonly<{ openDirectory?: (options: ConnectOptions) => Promise<Directory>; executable?: string }>;
 type Parsed = Readonly<{ command: Command; flags: Readonly<Record<string, string | boolean>>; positionals: readonly string[] }>;
 const globalFlags = new Set(["help", "config", "url", "base", "start-tls", "ca-file", "ca-only", "tls-no-verify", "tls-max-version", "insecure-plaintext", "anonymous", "profile", "auth", "gssapi-service", "gssapi-protection"]);
@@ -39,7 +40,7 @@ const COMPUTER_LIST = completeSchema(computerListSchema("ad"), computerListSchem
 const COMPUTER_SHOW = completeSchema(computerShowSchema("ad"), computerShowSchema("ldapv3"));
 const commandFlags: Record<Command, readonly string[]> = {
   entry: [], user: [], group: [], computer: [], auth: [], profile: [], config: [], server: [],
-  home: [], "entry search": ["filter", "scope", "attributes", "page-size", "max-rows", "all"], "entry show": ["attributes", "page-size"],
+  home: ["session-start"], setup: ["app", "skill", "hook", "check"], "entry search": ["filter", "scope", "attributes", "page-size", "max-rows", "all"], "entry show": ["attributes", "page-size"],
   "user list": [...USER_LIST.booleanFlags, ...USER_LIST.valueFlags], "user show": [...USER_SHOW.booleanFlags, ...USER_SHOW.valueFlags], "user groups": [...USER_GROUPS.booleanFlags, ...USER_GROUPS.valueFlags],
   "group list": [...GROUP_LIST.booleanFlags, ...GROUP_LIST.valueFlags], "group show": [...GROUP_SHOW.booleanFlags, ...GROUP_SHOW.valueFlags], "group members": [...GROUP_MEMBERS.booleanFlags, ...GROUP_MEMBERS.valueFlags],
   "auth status": ["offline"],
@@ -48,10 +49,11 @@ const commandFlags: Record<Command, readonly string[]> = {
 };
 const FILTER_SHAPED_COMMANDS = new Set<Command>(["entry search", "user list", "group list", "computer list"]);
 const IDENTIFIER_COMMANDS = new Set<Command>(["entry show", "user show", "user groups", "group show", "group members", "computer show"]);
-const values = new Set(["config", "url", "base", "ca-file", "tls-max-version", "profile", "auth", "gssapi-service", "gssapi-protection", "filter", "scope", "attributes", "page-size", "max-rows", "cursor", "name", "sam", "upn", "uid", "limit", "fields"]);
+const values = new Set(["app", "config", "url", "base", "ca-file", "tls-max-version", "profile", "auth", "gssapi-service", "gssapi-protection", "filter", "scope", "attributes", "page-size", "max-rows", "cursor", "name", "sam", "upn", "uid", "limit", "fields"]);
 function flagGuard(name: string): void { if (/password|passwd|secret|token|credential|key/i.test(name)) throw new Error(`secret-shaped flag --${name} is forbidden`); }
 for (const name of [...globalFlags, ...Object.values(commandFlags).flat()]) flagGuard(name);
 function help(command: Parsed["command"]): string {
+  if (command === "setup") return SETUP_HELP;
   if (command === "server") return `Report rootDSE capabilities and server flavor.\nUsage: ldap-axi server [flags]\nFlags:\n${flagHelp([...globalFlags])}\nDefaults: one selected authentication exchange; no search base is required.\nReports advertised facts only; absent optional attributes are omitted, and absent limit values are reported as not advertised.\nA configured flavor override is explicit alongside the detected flavor.\nExamples:\n  ldap-axi server --profile production\n  ldap-axi server --url ldaps://directory.example.test --anonymous`;
   if (Object.hasOwn(commandGroups, command)) return `Subcommands for ldap-axi ${command}:\n${commandGroups[command as CommandGroup].map(subcommand => `  ldap-axi ${command} ${subcommand} --help`).join("\n")}`;
   if (command === "config path") return "config path [--config <path>]\nShow the config path without reading credentials.\nDefaults: LDAP_AXI_CONFIG, then the platform config directory.\nExamples: ldap-axi config path\n          ldap-axi config path --config /private/config.json";
@@ -72,7 +74,7 @@ function help(command: Parsed["command"]): string {
   const schema = schemas[command];
   if (schema) return commandHelp(command, schema[0], schema[1], [...globalFlags]);
   if (command === "auth status") return `Reports the one selected authentication contract: credential provenance, native provider status, mechanism, SASL security layer, and TLS channel binding.\nUsage: ldap-axi auth status [flags]\nFlags:\n${flagHelp([...globalFlags, ...commandFlags[command]])}\nDefaults: one bind against the configured URL, and the server-resolved identity when the server advertises RFC 4532 Who Am I.\n--offline reports the selection without contacting the directory and performs no bind.\nExamples:\n  ldap-axi auth status --profile production\n  ldap-axi auth status --offline --url ldaps://directory.example.test`;
-  return "Read Active Directory and LDAPv3 directories.\nAuthentication defaults to auto and attempts one ambient GSSAPI context; failures are terminal and never select a password.\nUse --auth simple to preserve a configured bind identity.\nSelect configuration with --config <path> and --profile <name>.\nThe URL scheme selects the GSSAPI transport: verified TLS binds with no SASL security layer, plain ldap:// with a mandatory confidentiality layer.\nUse --tls-max-version 1.2 for verified TLS 1.2-only directory endpoints.\nCommands: entry search, entry show, user list, user show, user groups, group list, group show, group members, computer list, computer show, auth status, server, profile list, config path";
+  return "Read Active Directory and LDAPv3 directories.\nAuthentication defaults to auto and attempts one ambient GSSAPI context; failures are terminal and never select a password.\nUse --auth simple to preserve a configured bind identity.\nSelect configuration with --config <path> and --profile <name>.\nThe URL scheme selects the GSSAPI transport: verified TLS binds with no SASL security layer, plain ldap:// with a mandatory confidentiality layer.\nUse --tls-max-version 1.2 for verified TLS 1.2-only directory endpoints.\nCommands: entry search, entry show, user list, user show, user groups, group list, group show, group members, computer list, computer show, auth status, server, profile list, config path, setup";
 }
 export function parse(argv: readonly string[]): Parsed {
   let index = 0; let command: Command = "home";
@@ -84,10 +86,16 @@ export function parse(argv: readonly string[]): Parsed {
   else if (argv[0] === "auth") { if (argv[1] === "status") { command = "auth status"; index = 2; } else throw new CliError("VALIDATION_ERROR", "unknown auth subcommand", ["Run `ldap-axi auth status --help`"]); }
   else if (argv[0] === "profile" || argv[0] === "config") { if (argv[0] === "profile" && argv[1] === "list" || argv[0] === "config" && argv[1] === "path") { command = `${argv[0]} ${argv[1]}` as Command; index = 2; } else throw new CliError("VALIDATION_ERROR", "unknown configuration subcommand", ["Run `ldap-axi profile list --help` or `ldap-axi config path --help`"]); }
   else if (argv[0] === "server") { command = "server"; index = 1; }
+  else if (argv[0] === "setup") { command = "setup"; index = 1; }
   else if (argv[0]?.startsWith("-")) command = "home";
   else if (argv.length) throw new CliError("VALIDATION_ERROR", `unknown command ${argv[0]}`, ["Run `ldap-axi --help`"]);
   const flags: Record<string, string | boolean> = {}; const positionals: string[] = [];
-  for (; index < argv.length; index++) { const token = argv[index]; if (!token.startsWith("--")) { positionals.push(token); continue; } const [name, inline] = token.slice(2).split("=", 2); if (name === "cursor") throw new CliError("VALIDATION_ERROR", "--cursor is out of scope for ldap-axi v1", ["Use --all --max-rows <n> for a bounded in-process paged read"]); if (!globalFlags.has(name) && !commandFlags[command].includes(name)) throw new CliError("VALIDATION_ERROR", `unknown flag --${name} for \`${command}\``, [`valid flags for \`${command}\`: ${[...globalFlags, ...commandFlags[command]].map(value => `--${value}`).join(", ")}`]); if (values.has(name)) { const value = inline ?? argv[++index]; if (value === undefined || value.startsWith("--") || value === "" && name !== "base") throw new CliError("VALIDATION_ERROR", `--${name} requires a value`); flags[name] = value; } else flags[name] = true; }
+  const allowedFlags = command === "setup" ? ["help", ...commandFlags.setup] : [...globalFlags, ...commandFlags[command]];
+  for (; index < argv.length; index++) { const token = argv[index]; if (!token.startsWith("--")) { positionals.push(token); continue; } const [name, inline] = token.slice(2).split("=", 2); if (name === "cursor") throw new CliError("VALIDATION_ERROR", "--cursor is out of scope for ldap-axi v1", ["Use --all --max-rows <n> for a bounded in-process paged read"]); if (!allowedFlags.includes(name)) throw new CliError("VALIDATION_ERROR", `unknown flag --${name} for \`${command}\``, [`valid flags for \`${command}\`: ${allowedFlags.map(value => `--${value}`).join(", ")}`]); if (values.has(name)) { const value = inline ?? argv[++index]; if (value === undefined || value.startsWith("--") || value === "" && name !== "base") throw new CliError("VALIDATION_ERROR", `--${name} requires a value`); flags[name] = value; } else flags[name] = true; }
+  if (command === "setup") {
+    if (argv.some(token => /^--(?:skill|hook|check|help)=/.test(token))) throw new CliError("VALIDATION_ERROR", "setup boolean flags accept no value", ["Pass --skill, --hook, or --check without =true or =false"]);
+    if (positionals.length) throw new CliError("VALIDATION_ERROR", "setup accepts no positional arguments");
+  }
   if (flags.help) return { command, flags, positionals };
   if (command === "server" && positionals.length) throw new CliError("VALIDATION_ERROR", "server accepts no positional arguments");
   if (typeof flags.auth === "string") parseAuthMode(flags.auth, "--auth");
@@ -179,6 +187,15 @@ async function executeRun(argv: readonly string[], dependencies: RunDependencies
   let transportWarning = "";
   try {
     const parsed = parse(argv); if (parsed.flags.help) return { stdout: `${help(parsed.command)}\n`, stderr: "", exitCode: 0 };
+    if (parsed.command === "setup") {
+      try {
+        const result = await setup(parsed.flags, dependencies.executable ?? process.argv[1]);
+        return { stdout: render(result.data, result.help, redactor), stderr: "", exitCode: result.exitCode };
+      } catch (error) {
+        if (error instanceof CliError) throw error;
+        throw new CliError("CONFIG_INVALID", "cannot read or write the selected agent integration", ["Check the agent configuration directory permissions and that the current CLI installation still exists"]);
+      }
+    }
     if (parsed.command === "config path") return { stdout: render({ config: paths(str(parsed.flags.config)).config }, [], redactor), stderr: "", exitCode: 0 };
     if (parsed.command === "profile list") {
       const loaded = await loadConfig(str(parsed.flags.config));
