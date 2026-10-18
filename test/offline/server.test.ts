@@ -63,6 +63,23 @@ test("server CLI uses configured override and closes a sparse directory without 
   assert.match(result.stdout, /flavor_overridden: true/);
 });
 
+for (const { name, flags, verified } of [
+  { name: "unverified LDAPS", flags: ["--url", "ldaps://directory.example.test", "--tls-no-verify"], verified: false },
+  { name: "unverified StartTLS", flags: ["--url", "ldap://directory.example.test", "--start-tls", "--tls-no-verify"], verified: false },
+  { name: "verified LDAPS", flags: ["--url", "ldaps://directory.example.test"], verified: true },
+  { name: "verified StartTLS", flags: ["--url", "ldap://directory.example.test", "--start-tls"], verified: true },
+  { name: "plaintext LDAP", flags: ["--url", "ldap://directory.example.test", "--insecure-plaintext"], verified: false },
+]) {
+  test(`server CLI reports transport trust for ${name}`, async () => {
+    await isolated(async () => {
+      const result = await run(["server", ...flags, "--anonymous"], { openDirectory: async () => new RecordedDirectory("ldapv3", []) });
+      assert.equal(result.exitCode, 0);
+      assert.match(result.stdout, new RegExp(`^tls_verified: ${verified}$`, "m"));
+      assert.match(result.stdout, /^detected_flavor: ldapv3$/m);
+    });
+  });
+}
+
 test("server preserves authentication failures without retrying", async () => {
   await isolated(async () => {
     let attempts = 0;

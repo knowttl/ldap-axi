@@ -200,8 +200,9 @@ async function executeRun(argv: readonly string[], dependencies: RunDependencies
     transportWarning = warningFor(settings, parsed);
     if (parsed.command === "server") {
       const plan = await authPlanFor(parsed, settings);
+      const plaintext = /^ldap:/i.test(settings.url!) && !settings.startTls;
       const directory = await open(connectOptions(parsed, settings, plan));
-      try { const result = await serverReport(directory, settings.flavor); return { stdout: render(result.data, result.help, redactor), stderr: transportWarning, exitCode: 0 }; }
+      try { const result = await serverReport(directory, settings.flavor); return { stdout: render({ ...result.data, tls_verified: !plaintext && !parsed.flags["tls-no-verify"] }, result.help, redactor), stderr: transportWarning, exitCode: 0 }; }
       finally { await directory.close(); }
     }
     const opened = await connection(parsed, settings, open); const flavor = opened.directory.flavor;
