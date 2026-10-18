@@ -11,6 +11,33 @@ const COMPUTER = entry(DN, { cn: ["Workstation"], sAMAccountName: ["WORKSTATION$
 const LIST = { base: BASE, flavor: "ad", pageSize: 1, all: true, scope: "sub" } as const;
 const SHOW = { base: BASE, flavor: "ad", pageSize: 1, identifier: "WORKSTATION$" } as const;
 
+for (const flavor of ["ad", "adlds", "ldapv3"] as const) {
+  test(`${flavor} computer list DN longer than 800 characters opens complete computer details`, async () => {
+    const dn = `CN=Workstation,${"OU=NestedDevices,".repeat(60)}${BASE}`;
+    const computer = entry(dn, { cn: ["Workstation"] });
+    const directory = new RecordedDirectory(flavor, [byDn(dn, computer), byFilter([], [computer])]);
+    const listed = await listComputers(directory, { ...LIST, flavor, fields: ["dn"] });
+    const row = (listed.data.computers as Record<string, unknown>[])[0];
+    assert.equal(row.dn, dn);
+    const shown = await showComputer(directory, { ...SHOW, flavor, identifier: String(row.dn) });
+    assert.equal((shown.data.computer as Record<string, unknown>).dn, dn);
+    assert.equal(directory.requests[1].scope, "base");
+    assert.equal(directory.requests[1].base, dn);
+  });
+  test(`${flavor} computer list and show retain redaction throughout long DNs`, async () => {
+    const dn = `CN=Workstation,${"OU=NestedDevices,".repeat(60)}OU=synthetic-secret,${BASE}`;
+    const expected = dn.replace("synthetic-secret", "[REDACTED]");
+    const redactor = new SecretRedactor();
+    redactor.add("synthetic-secret");
+    const computer = entry(dn, {});
+    const directory = new RecordedDirectory(flavor, [byDn(dn, computer), byFilter([], [computer])]);
+    const listed = await listComputers(directory, { ...LIST, flavor, fields: ["dn"], redactor });
+    assert.deepEqual(listed.data.computers, [{ dn: expected }]);
+    const shown = await showComputer(directory, { ...SHOW, flavor, identifier: dn, fields: ["dn"], redactor });
+    assert.deepEqual(shown.data.computer, { dn: expected });
+  });
+}
+
 for (const flavor of ["ad", "adlds"] as const) {
   test(`${flavor} computer list uses machine shape and minimal defaults`, async () => {
     const directory = new RecordedDirectory(flavor, [byFilter(["(objectCategory=computer)"], [COMPUTER])]);

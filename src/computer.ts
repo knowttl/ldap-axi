@@ -30,7 +30,7 @@ function computeField(entry: Entry, name: string, ad: boolean): unknown {
   }
 }
 function computerRow(entry: Entry, names: readonly string[], ad: boolean, attributes?: readonly string[], redactor?: SecretRedactor): Record<string, unknown> {
-  const row = compact(Object.fromEntries(names.map(name => { const value = computeField(entry, name, ad); return [name, typeof value === "string" ? truncate(redactText(value, redactor)) : value]; })));
+  const row = compact(Object.fromEntries(names.map(name => { const value = computeField(entry, name, ad); return [name, typeof value === "string" ? (name === "dn" ? redactText(value, redactor) : truncate(redactText(value, redactor))) : value]; })));
   if (names.includes("object_sid") && row.object_sid !== undefined) row.object_sid_raw = first(entry, "objectSid_raw") ?? first(entry, "objectSid");
   if (names.includes("object_guid") && row.object_guid !== undefined) row.object_guid_raw = first(entry, "objectGUID_raw") ?? first(entry, "objectGUID");
   if (names.includes("last_logon") && row.last_logon !== undefined) row.last_logon_precision = "approximate";
