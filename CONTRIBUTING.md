@@ -10,11 +10,15 @@ npm ci
 npm run verify
 ```
 
-`npm run verify` runs typechecking, architecture lint, the build, and the offline tests, including packed-package consumer checks.
+`npm run verify` runs typechecking, architecture lint, the build, offline tests including packed-package consumer checks, and generated-skill drift verification.
 The required checks run locally and use synthetic fixtures.
 Run them before submitting a pull request.
 Do not add GitHub test CI or CI badges as a substitute for local verification.
 Existing native release automation is described in the [support matrix](docs/support-matrix.md#release-and-provenance).
+
+Regenerate both committed skill copies with `npm run skill:generate` after changing their source guidance.
+Run `npm run skill:check` to check for missing or stale output without rewriting it.
+See the [skill design](docs/design/v1.md#172-session-hook-and-skill) for the generation contract.
 
 The optional `npm run test:local-directory` suite requires Linux and Docker and provisions disposable Samba AD and OpenLDAP/MIT KDC directories.
 It is separate from `npm run verify`.

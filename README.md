@@ -26,7 +26,7 @@ npx skills add knowttl/ldap-axi --skill ldap-axi
 The skill provides static read-only command and authentication guidance with `npx -y @knowttl/ldap-axi` examples.
 It contains no local connection or credential state.
 Session hooks and `ldap-axi setup` are deferred; use the no-argument home view directly for the local connection summary.
-Contributors regenerate both committed skill copies with `npm run skill:generate` and check drift with `npm run skill:check`, also included in `npm run verify`.
+See [development checks](CONTRIBUTING.md#development-checks) for skill regeneration and drift verification.
 
 Use `ldap-axi user --help`, `ldap-axi group --help`, `ldap-axi computer --help`, or `ldap-axi auth --help` to discover subcommands without connecting.
 Leaf help, such as `ldap-axi entry search --help` and `ldap-axi auth status --help`, lists flags, defaults, and usage examples.
