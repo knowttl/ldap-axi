@@ -26,9 +26,7 @@ ldap-axi setup --app claude --hook --check
 
 The hook prints the compact offline home without connecting or binding.
 Setup preserves unrelated Claude settings and repairs its own hook after executable relocation; rerun the install command after moving or reinstalling the CLI.
-It uses a verified executable name on PATH when safe, otherwise the current Node executable and absolute script path.
 Claude Code must support exec-form command hooks (`command` plus `args`).
-See the [Claude hook reference](https://code.claude.com/docs/en/hooks#exec-form-and-shell-form) for this format.
 
 For on-demand guidance, explicitly install the static skill for Claude Code, Codex, or OpenCode:
 
@@ -40,9 +38,7 @@ ldap-axi setup --app opencode --skill
 
 Choose the hook or skill; either works independently, and `--hook --skill` installs both for Claude.
 `--check` reports missing or stale selected integrations with exit 1 and never writes; rerunning setup installs or repairs them.
-Setup uses user-level agent directories, respecting `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `OPENCODE_CONFIG_DIR`, and `XDG_CONFIG_HOME` for OpenCode.
-It refuses malformed Claude settings and custom skills instead of overwriting them.
-Ordinary commands never install integrations.
+See the [setup contract](docs/design/v1.md#172-session-hook-and-skill) for user-level installation paths, directory overrides, executable selection, and configuration safeguards.
 
 Alternatively, install the optional agent skill without a global binary install:
 
