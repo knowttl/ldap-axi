@@ -12,11 +12,16 @@ import { skillInstallHint } from "./skill-hint.js";
 import { createKerberosProvider } from "./directory/gssapi.js";
 import { assertAttributes, DEFAULT_ENTRY_ATTRIBUTES, searchEntries, showEntry } from "./entry.js";
 import { render, renderError } from "./render.js";
-import { commandHelp, completeSchema, groupListSchema, groupMembersSchema, groupShowSchema, selectFields, userGroupsSchema, userListSchema, userShowSchema, type CommandSchema } from "./schema.js";
+import { commandHelp, completeSchema, flagHelp, groupListSchema, groupMembersSchema, groupShowSchema, selectFields, userGroupsSchema, userListSchema, userShowSchema, type CommandSchema } from "./schema.js";
 import { listUsers, showUser, userGroups } from "./user.js";
 import { listGroups, showGroup, groupMembers } from "./group.js";
 
-type Command = "home" | "entry search" | "entry show" | "user list" | "user show" | "user groups" | "group list" | "group show" | "group members" | "auth status" | "profile list" | "config path";
+const commandGroups = {
+  entry: ["search", "show"], user: ["list", "show", "groups"], group: ["list", "show", "members"],
+  auth: ["status"], profile: ["list"], config: ["path"],
+} as const;
+type CommandGroup = keyof typeof commandGroups;
+type Command = CommandGroup | "home" | "entry search" | "entry show" | "user list" | "user show" | "user groups" | "group list" | "group show" | "group members" | "auth status" | "profile list" | "config path";
 export type RunDependencies = Readonly<{ openDirectory?: (options: ConnectOptions) => Promise<Directory>; executable?: string }>;
 type Parsed = Readonly<{ command: Command; flags: Readonly<Record<string, string | boolean>>; positionals: readonly string[] }>;
 const globalFlags = new Set(["help", "config", "url", "base", "start-tls", "ca-file", "ca-only", "tls-no-verify", "tls-max-version", "insecure-plaintext", "anonymous", "profile", "auth", "gssapi-service", "gssapi-protection"]);
@@ -28,6 +33,7 @@ const GROUP_LIST = completeSchema(groupListSchema("ad"), groupListSchema("ldapv3
 const GROUP_SHOW = completeSchema(groupShowSchema("ad"), groupShowSchema("ldapv3"));
 const GROUP_MEMBERS = completeSchema(groupMembersSchema("ad"), groupMembersSchema("ldapv3"));
 const commandFlags: Record<Command, readonly string[]> = {
+  entry: [], user: [], group: [], auth: [], profile: [], config: [],
   home: [], "entry search": ["filter", "scope", "attributes", "page-size", "max-rows", "all"], "entry show": ["attributes", "page-size"],
   "user list": [...USER_LIST.booleanFlags, ...USER_LIST.valueFlags], "user show": [...USER_SHOW.booleanFlags, ...USER_SHOW.valueFlags], "user groups": [...USER_GROUPS.booleanFlags, ...USER_GROUPS.valueFlags],
   "group list": [...GROUP_LIST.booleanFlags, ...GROUP_LIST.valueFlags], "group show": [...GROUP_SHOW.booleanFlags, ...GROUP_SHOW.valueFlags], "group members": [...GROUP_MEMBERS.booleanFlags, ...GROUP_MEMBERS.valueFlags],
@@ -40,9 +46,15 @@ const values = new Set(["config", "url", "base", "ca-file", "tls-max-version", "
 function flagGuard(name: string): void { if (/password|passwd|secret|token|credential|key/i.test(name)) throw new Error(`secret-shaped flag --${name} is forbidden`); }
 for (const name of [...globalFlags, ...Object.values(commandFlags).flat()]) flagGuard(name);
 function help(command: Parsed["command"]): string {
+  if (Object.hasOwn(commandGroups, command)) return `Subcommands for ldap-axi ${command}:\n${commandGroups[command as CommandGroup].map(subcommand => `  ldap-axi ${command} ${subcommand} --help`).join("\n")}`;
   if (command === "config path") return "config path [--config <path>]\nShow the config path without reading credentials.\nDefaults: LDAP_AXI_CONFIG, then the platform config directory.\nExamples: ldap-axi config path\n          ldap-axi config path --config /private/config.json";
   if (command === "profile list") return "profile list [--config <path>]\nList configured profile names, URLs and auth modes without resolving secrets.\nDefaults: LDAP_AXI_CONFIG, then the platform config directory.\nExamples: ldap-axi profile list\n          ldap-axi profile list --config /private/config.json";
-  if (command === "entry search") return "entry search [--base <dn>] [--filter <RFC4515>] [--scope base|one|sub] [--attributes a,b] [--max-rows n] [--all]\nDefaults to objectClass,cn; attribute wildcards are forbidden.\nAuthentication defaults to auto and attempts one ambient GSSAPI context; failures are terminal and never select a password.\nUse --auth simple to preserve a configured bind identity.\nThe URL scheme selects the GSSAPI transport: verified TLS binds with no SASL security layer, plain ldap:// with a mandatory confidentiality layer.\nUse --tls-max-version 1.2 for verified TLS 1.2-only directory endpoints.\nExamples: ldap-axi entry search --filter \"(objectClass=person)\"\nFilter values must escape * ( ) \\ and NUL.";
+  if (command === "entry search") return `Search directory entries.\nUsage: ldap-axi entry search [flags]\nFlags:\n${flagHelp([...globalFlags, ...commandFlags[command]], {
+    filter: "<RFC4515> LDAP filter (default: (objectClass=*))",
+    attributes: "<name,...> requested attributes (default: objectClass,cn); wildcards are forbidden",
+    "max-rows": "<n> maximum output rows (default: one page)",
+    all: "read all pages; requires --max-rows (default: false)",
+  })}\nDefaults: base is selected from config or the server naming contexts.\nAuthentication defaults to auto and attempts one ambient GSSAPI context; failures are terminal and never select a password.\nUse --auth simple to preserve a configured bind identity.\nThe URL scheme selects the GSSAPI transport: verified TLS binds with no SASL security layer, plain ldap:// with a mandatory confidentiality layer.\nFilters use RFC 4515 prefix operators & | !; escape literal * ( ) \\ and NUL in values.\nExamples:\n  ldap-axi entry search --filter "(objectClass=person)" --attributes cn,mail --max-rows 25\n  ldap-axi entry search --base "DC=example,DC=test" --scope one --all --max-rows 2000`;
   if (command === "entry show") return "entry show <dn> [--attributes a,b]\nDefaults to objectClass,cn; attribute wildcards are forbidden.\nAuthentication defaults to auto and attempts one ambient GSSAPI context; failures are terminal and never select a password.\nUse --auth simple to preserve a configured bind identity.\nThe URL scheme selects the GSSAPI transport: verified TLS binds with no SASL security layer, plain ldap:// with a mandatory confidentiality layer.\nUse --tls-max-version 1.2 for verified TLS 1.2-only directory endpoints.\nExample: ldap-axi entry show \"CN=Example,DC=example,DC=test\"";
   const schemas: Partial<Record<Command, readonly [CommandSchema, CommandSchema]>> = {
     "user list": [userListSchema("ad"), userListSchema("ldapv3")], "user show": [userShowSchema("ad"), userShowSchema("ldapv3")],
@@ -51,12 +63,13 @@ function help(command: Parsed["command"]): string {
   };
   const schema = schemas[command];
   if (schema) return commandHelp(command, schema[0], schema[1], [...globalFlags]);
-  if (command === "auth status") return "auth status [--offline]\nReports the one selected authentication contract: credential provenance, native provider status, mechanism, SASL security layer, and TLS channel binding.\nDefaults: one bind against the configured URL, and the server-resolved identity when the server advertises RFC 4532 Who Am I.\n--offline reports the selection without contacting the directory and performs no bind.\nExamples: ldap-axi auth status\n          ldap-axi auth status --offline --url ldaps://dc01.example.com";
+  if (command === "auth status") return `Reports the one selected authentication contract: credential provenance, native provider status, mechanism, SASL security layer, and TLS channel binding.\nUsage: ldap-axi auth status [flags]\nFlags:\n${flagHelp([...globalFlags, ...commandFlags[command]])}\nDefaults: one bind against the configured URL, and the server-resolved identity when the server advertises RFC 4532 Who Am I.\n--offline reports the selection without contacting the directory and performs no bind.\nExamples:\n  ldap-axi auth status --profile production\n  ldap-axi auth status --offline --url ldaps://directory.example.test`;
   return "Read Active Directory and LDAPv3 directories.\nAuthentication defaults to auto and attempts one ambient GSSAPI context; failures are terminal and never select a password.\nUse --auth simple to preserve a configured bind identity.\nSelect configuration with --config <path> and --profile <name>.\nThe URL scheme selects the GSSAPI transport: verified TLS binds with no SASL security layer, plain ldap:// with a mandatory confidentiality layer.\nUse --tls-max-version 1.2 for verified TLS 1.2-only directory endpoints.\nCommands: entry search, entry show, user list, user show, user groups, group list, group show, group members, auth status, profile list, config path";
 }
 export function parse(argv: readonly string[]): Parsed {
   let index = 0; let command: Command = "home";
-  if (argv[0] === "entry") { if (argv[1] === "search" || argv[1] === "show") { command = `entry ${argv[1]}` as Command; index = 2; } else throw new CliError("VALIDATION_ERROR", "unknown entry subcommand", ["Run `ldap-axi entry --help`"]); }
+  if (Object.hasOwn(commandGroups, argv[0] ?? "") && argv[1] === "--help") { command = argv[0] as CommandGroup; index = 1; }
+  else if (argv[0] === "entry") { if (argv[1] === "search" || argv[1] === "show") { command = `entry ${argv[1]}` as Command; index = 2; } else throw new CliError("VALIDATION_ERROR", "unknown entry subcommand", ["Run `ldap-axi entry --help`"]); }
   else if (argv[0] === "user") { if (argv[1] === "list" || argv[1] === "show" || argv[1] === "groups") { command = `user ${argv[1]}` as Command; index = 2; } else throw new CliError("VALIDATION_ERROR", "unknown user subcommand", ["Run `ldap-axi user --help`"]); }
   else if (argv[0] === "group") { if (argv[1] === "list" || argv[1] === "show" || argv[1] === "members") { command = `group ${argv[1]}` as Command; index = 2; } else throw new CliError("VALIDATION_ERROR", "unknown group subcommand", ["Run `ldap-axi group --help`"]); }
   else if (argv[0] === "auth") { if (argv[1] === "status") { command = "auth status"; index = 2; } else throw new CliError("VALIDATION_ERROR", "unknown auth subcommand", ["Run `ldap-axi auth status --help`"]); }

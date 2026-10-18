@@ -7,6 +7,86 @@ import { CliError } from "../../src/core.js";
 const rejects = (argv: string[], match: (error: CliError) => boolean = () => true) =>
   assert.throws(() => parse(argv), (error: unknown) => error instanceof CliError && error.code === "VALIDATION_ERROR" && match(error));
 
+test("an unknown top-level command exits 2 without connecting", async () => {
+  const result = await run(["bogus"], { openDirectory: async () => assert.fail("invalid input must not connect") });
+  assert.equal(result.exitCode, 2);
+  assert.match(result.stdout, /unknown command bogus/);
+});
+
+for (const [group, subcommands] of [
+  ["entry", ["search", "show"]], ["user", ["list", "show", "groups"]],
+  ["group", ["list", "show", "members"]], ["auth", ["status"]],
+  ["profile", ["list"]], ["config", ["path"]],
+] as const) {
+  test(`${group} help lists its subcommands without connecting`, async () => {
+    const result = await run([group, "--help"], { openDirectory: async () => assert.fail("help must not connect") });
+    assert.equal(result.exitCode, 0);
+    assert.equal(result.stderr, "");
+    for (const subcommand of subcommands) assert.ok(result.stdout.includes(`ldap-axi ${group} ${subcommand} --help`));
+  });
+  test(`${group} rejects unknown subcommands without connecting`, async () => {
+    const result = await run([group, "bogus"], { openDirectory: async () => assert.fail("invalid input must not connect") });
+    assert.equal(result.exitCode, 2);
+    assert.match(result.stdout, /VALIDATION_ERROR/);
+  });
+  test(`${group} help still rejects unknown flags without connecting`, async () => {
+    const result = await run([group, "--help", "--bogus"], { openDirectory: async () => assert.fail("invalid input must not connect") });
+    assert.equal(result.exitCode, 2);
+    assert.match(result.stdout, /unknown flag --bogus/);
+  });
+  for (const subcommand of subcommands) {
+    test(`${group} ${subcommand} help succeeds without arguments or a connection`, async () => {
+      const result = await run([group, subcommand, "--help"], { openDirectory: async () => assert.fail("help must not connect") });
+      assert.equal(result.exitCode, 0);
+      assert.ok(result.stdout.includes(`${group} ${subcommand}`));
+    });
+    test(`${group} ${subcommand} rejects unknown flags before connecting`, async () => {
+      const result = await run([group, subcommand, "--bogus"], { openDirectory: async () => assert.fail("invalid input must not connect") });
+      assert.equal(result.exitCode, 2);
+      assert.match(result.stdout, /unknown flag --bogus/);
+      assert.match(result.stdout, /valid flags/);
+    });
+  }
+}
+
+for (const [command, localFlags] of [
+  ["entry search", ["filter", "scope", "attributes", "page-size", "max-rows", "all"]],
+  ["auth status", ["offline"]],
+] as const) {
+  test(`${command} help lists every accepted flag exactly once`, async () => {
+    const result = await run([...command.split(" "), "--help"]);
+    const invalid = await run([...command.split(" "), "--bogus"]);
+    const advertised = [...result.stdout.matchAll(/^  --([\w-]+)  \S.+$/gm)].map(match => match[1]);
+    const accepted = [...invalid.stdout.matchAll(/--([\w-]+)/g)].map(match => match[1]).filter(name => name !== "bogus");
+    assert.deepEqual(advertised.toSorted(), [...new Set(accepted)].toSorted());
+    assert.equal(advertised.length, new Set(advertised).size);
+    for (const flag of localFlags) assert.ok(advertised.includes(flag));
+    assert.match(result.stdout, /default: auto/);
+    assert.match(result.stdout, /Examples:\n  ldap-axi /);
+  });
+}
+
+test("entry search help explains search and paging defaults", async () => {
+  const result = await run(["entry", "search", "--help"]);
+  assert.match(result.stdout, /default: \(objectClass=\*\)/);
+  assert.match(result.stdout, /default: sub/);
+  assert.match(result.stdout, /default: objectClass,cn/);
+  assert.match(result.stdout, /AD 1000, LDAPv3 500/);
+  assert.match(result.stdout, /default: one page/);
+});
+
+for (const command of ["user list", "user show", "user groups", "group list", "group show", "group members"]) {
+  test(`${command} help provides two useful parseable examples`, async () => {
+    const result = await run([...command.split(" "), "--help"]);
+    const examples = result.stdout.split("Examples:\n")[1].trim().split("\n");
+    assert.equal(examples.length, 2);
+    for (const example of examples) {
+      assert.doesNotMatch(example, /\s(?:--help|example)(?:\s|$)/);
+      assert.doesNotThrow(() => parse(example.trim().split(" ").slice(1)));
+    }
+  });
+}
+
 test("user and group subcommands route to their command and consume the identifier positional", () => {
   assert.equal(parse(["user", "list", "--disabled"]).command, "user list");
   assert.equal(parse(["user", "show", "jdoe"]).positionals[0], "jdoe");

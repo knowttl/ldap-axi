@@ -52,27 +52,39 @@ export function completeSchema(...schemas: readonly CommandSchema[]): CommandSch
 }
 
 const FLAG_HELP: Readonly<Record<string, string>> = {
-  config: "<path> select a credential-standard config file",
-  help: "show this help", url: "<ldap[s]://host:port> directory URL", base: "<dn> search base", "start-tls": "upgrade ldap:// using StartTLS",
-  "ca-file": "<pem> append a trusted CA", "ca-only": "trust only --ca-file certificates", "tls-no-verify": "disable certificate verification", "tls-max-version": "<1.2> cap verified TLS to TLS 1.2",
-  "insecure-plaintext": "allow plaintext LDAP", anonymous: "bind anonymously", profile: "<name> select a saved profile", auth: "<auto|gssapi|simple> authentication selection (default: auto)", "gssapi-service": "<service@fqdn> override the URL-derived GSSAPI service", "gssapi-protection": "<none|confidentiality> required GSSAPI protection; the URL scheme selects it",
+  config: "<path> select a credential-standard config file (default: LDAP_AXI_CONFIG, then platform config directory)",
+  help: "show this help", url: "<ldap[s]://host:port> directory URL (default: environment or config)", base: "<dn> search base (default: environment, config, or server naming contexts)", "start-tls": "upgrade ldap:// using StartTLS (default: environment or config, otherwise false)",
+  "ca-file": "<pem> append a trusted CA (default: environment or config, otherwise bundled roots)", "ca-only": "trust only --ca-file certificates (default: false)", "tls-no-verify": "disable certificate verification (default: false)", "tls-max-version": "<1.2> cap verified TLS to TLS 1.2 (default: environment or config, otherwise runtime maximum)",
+  "insecure-plaintext": "allow plaintext LDAP (default: false)", anonymous: "bind anonymously (default: false)", profile: "<name> select a saved profile (default: environment profile, defaultProfile, or sole saved profile)", auth: "<auto|gssapi|simple> authentication selection (default: auto; environment or config overrides)", "gssapi-service": "<service@fqdn> override the URL-derived GSSAPI service (default: ldap@URL-host; environment or config overrides)", "gssapi-protection": "<none|confidentiality> required GSSAPI protection; the URL scheme selects it (default: none over TLS, confidentiality over plain LDAP)",
   disabled: "include disabled accounts (LDAPv3: permanent ppolicy locks)", enabled: "include enabled accounts (LDAPv3: exclude permanent ppolicy locks)", locked: "include current AD locks or recorded LDAPv3 ppolicy lock candidates",
   all: "read all pages up to --max-rows or --limit", nested: "AD only: expand transitive membership", name: "<pattern> match cn", sam: "<pattern> AD only: match sAMAccountName",
   upn: "<pattern> AD only: match userPrincipalName", uid: "<pattern> LDAPv3 only: match uid", filter: "<RFC4515> add a raw LDAP filter",
-  scope: "<base|one|sub> search scope", "max-rows": "<n> maximum output rows", "page-size": "<1..1000> LDAP page size", limit: "<n> alias for bounded list output",
+  scope: "<base|one|sub> search scope (default: sub)", "max-rows": "<n> maximum output rows", "page-size": "<1..1000> LDAP page size (default: AD 1000, LDAPv3 500; config overrides)", limit: "<n> alias for bounded list output",
   fields: "<name,...> select output fields", attributes: "<name,...> request and emit raw attributes",
+  offline: "report authentication selection without connecting or binding (default: false)",
+};
+
+export function flagHelp(names: readonly string[], overrides: Readonly<Record<string, string>> = {}): string {
+  return [...new Set(names)].map(name => `  --${name}  ${overrides[name] ?? FLAG_HELP[name] ?? ""}`.trimEnd()).join("\n");
+}
+
+const EXAMPLES: Readonly<Record<string, readonly string[]>> = {
+  "user list": ["--disabled --max-rows 25", "--name Alice --fields name,dn --limit 50"],
+  "user show": ["alice --fields name,dn", "uid=alice,ou=people,dc=example,dc=test --attributes mail"],
+  "user groups": ["alice --fields name,dn", "alice --nested --max-rows 100"],
+  "group list": ["--name Engineering --fields name,dn", "--all --max-rows 2000"],
+  "group show": ["engineering --fields name,dn", "cn=engineering,ou=groups,dc=example,dc=test --attributes description"],
+  "group members": ["engineering --fields name,dn", "engineering --nested --max-rows 100"],
 };
 
 export function commandHelp(command: string, ad: CommandSchema, ldapv3: CommandSchema, globalNames: readonly string[]): string {
   const schema = completeSchema(ad, ldapv3);
   const argument = / (?:show|groups|members)$/.test(command) ? " <identifier-or-dn>" : "";
-  const flags = [...new Set([...globalNames, ...schema.booleanFlags, ...schema.valueFlags])]
-    .map(name => `  --${name}  ${FLAG_HELP[name] ?? ""}`.trimEnd())
-    .join("\n");
+  const flags = flagHelp([...globalNames, ...schema.booleanFlags, ...schema.valueFlags]);
   const fields = (flavor: string, value: CommandSchema): string => `${flavor} fields: ${value.fields.map(field => field.name).join(", ")}\n${flavor} defaults: ${value.defaultFields.join(", ")}`;
-  const exampleArgument = argument.replace("<identifier-or-dn>", "example");
+  const examples = EXAMPLES[command].map(example => `  ldap-axi ${command} ${example}`).join("\n");
   const userShape = command.startsWith("user ") ? "\nLDAPv3 users are inetOrgPerson or posixAccount entries; use ldap-axi entry search for account + simpleSecurityObject service accounts." : "";
-  return `${schema.summary}${userShape}\nUsage: ldap-axi ${command}${argument} [flags]\nFlags:\n${flags}\n${fields("Active Directory", ad)}\n${fields("LDAPv3", ldapv3)}\nExamples:\n  ldap-axi ${command}${exampleArgument} --help\n  ldap-axi ${command}${exampleArgument}`;
+  return `${schema.summary}${userShape}\nUsage: ldap-axi ${command}${argument} [flags]\nFlags:\n${flags}\n${fields("Active Directory", ad)}\n${fields("LDAPv3", ldapv3)}\nExamples:\n${examples}`;
 }
 
 const IDENTITY_FLAGS = ["max-rows", "page-size", "limit", "fields", "attributes"] as const;
