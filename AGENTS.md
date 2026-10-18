@@ -48,8 +48,8 @@ runtime-library requirements, and what is proved versus unproved - so status bel
 
 Stage 1 and stage 2 are implemented: the `src/` foundation, `entry search`, `entry show`, `user list`,
 `user show`, `user groups`, `group list`, `group show`, and `group members` all ship, and Phase 4 adds
-`auth status` plus the home view, `computer list` / `computer show` ship, and `server` reports cached rootDSE facts, with the remaining v1 command surface (`setup`)
-deferred to later stages.
+`auth status` plus the home view, `computer list` / `computer show` ship, and `server` reports cached rootDSE facts.
+`setup` installs explicitly selected skills for Claude, Codex, or OpenCode and the Claude SessionStart offline home hook, with `--check` and repair; other session integrations remain deferred.
 `auth status` is the one authentication diagnostic: it reports credential provenance, the recorded native
 provider status from `build/native-status.json`, the scheme-selected mechanism, the SASL security layer, and
 the TLS channel binding, and `--offline` reports that selection with no connection and no bind.

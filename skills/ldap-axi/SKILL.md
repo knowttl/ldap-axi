@@ -36,6 +36,7 @@ These implemented commands provide flags, defaults, and examples without connect
 - `npx -y @knowttl/ldap-axi server --help`
 - `npx -y @knowttl/ldap-axi profile list --help`
 - `npx -y @knowttl/ldap-axi config path --help`
+- `npx -y @knowttl/ldap-axi setup --help`
 
 ## Authentication
 

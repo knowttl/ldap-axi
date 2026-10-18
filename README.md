@@ -17,7 +17,30 @@ ldap-axi auth status --offline
 See the [support matrix](docs/support-matrix.md#installing-from-npm) for native installation requirements and older package limitations.
 The executable is `ldap-axi`.
 Run `ldap-axi` with no arguments for the offline home view; see [skill installation hints](docs/design/v1.md#141-the-home-view) for its optional agent-host guidance.
-Install the optional agent skill without a global binary install:
+For ambient context in Claude Code, explicitly install its SessionStart hook:
+
+```sh
+ldap-axi setup --app claude --hook
+ldap-axi setup --app claude --hook --check
+```
+
+The hook prints the compact offline home without connecting or binding.
+Setup preserves unrelated Claude settings and repairs its own hook after executable relocation; rerun the install command after moving or reinstalling the CLI.
+Claude Code must support exec-form command hooks (`command` plus `args`).
+
+For on-demand guidance, explicitly install the static skill for Claude Code, Codex, or OpenCode:
+
+```sh
+ldap-axi setup --app claude --skill
+ldap-axi setup --app codex --skill
+ldap-axi setup --app opencode --skill
+```
+
+Choose the hook or skill; either works independently, and `--hook --skill` installs both for Claude.
+`--check` reports missing or stale selected integrations with exit 1 and never writes; rerunning setup installs or repairs them.
+See the [setup contract](docs/design/v1.md#172-session-hook-and-skill) for user-level installation paths, directory overrides, executable selection, and configuration safeguards.
+
+Alternatively, install the optional agent skill without a global binary install:
 
 ```sh
 npx skills add knowttl/ldap-axi --skill ldap-axi
@@ -25,7 +48,7 @@ npx skills add knowttl/ldap-axi --skill ldap-axi
 
 The skill provides static read-only command and authentication guidance with `npx -y @knowttl/ldap-axi` examples.
 It contains no local connection or credential state.
-Session hooks and `ldap-axi setup` are deferred; use the no-argument home view directly for the local connection summary.
+Codex and OpenCode session hooks remain deferred; their static skills are supported.
 See [development checks](CONTRIBUTING.md#development-checks) for skill regeneration and drift verification.
 
 Use `ldap-axi user --help`, `ldap-axi group --help`, `ldap-axi computer --help`, or `ldap-axi auth --help` to discover subcommands without connecting.

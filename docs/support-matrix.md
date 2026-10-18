@@ -15,7 +15,7 @@ This file is the single status surface for the project; `README.md` states the i
 | `auth status` | Implemented, including the non-connecting `--offline` report |
 | `profile list`, `config path` | Implemented, offline credential-standard configuration discovery |
 | `server` | Implemented, cached rootDSE facts, advertised limits, and explicit flavor override; offline synthetic verification only |
-| `setup` | Planned |
+| `setup` | Implemented: explicit `--app` and `--skill` for Claude, Codex, OpenCode; Claude-only `--hook`; read-only `--check` and idempotent repair, verified offline with temporary homes |
 
 Implemented commands cover Active Directory and generic LDAPv3, decoded account state, SID/GUID/FILETIME and
 `groupType` handling, nested and direct membership, and the partial/incomplete result contract.
