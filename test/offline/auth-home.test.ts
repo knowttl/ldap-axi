@@ -217,7 +217,8 @@ test("the live smoke script writes redacted evidence for every step of its fixed
     assert.equal(evidence.steps[0].exit_code, 0);
     assert.ok(evidence.steps[0].keys.includes("commands[11]"));
     assert.equal(evidence.steps[1].exit_code, 0);
-    for (const step of evidence.steps.slice(3)) assert.equal(step.error_code, "SERVER_UNREACHABLE");
+    // Host policy can drop loopback traffic instead of immediately refusing a closed port.
+    for (const step of evidence.steps.slice(3)) assert.ok(["SERVER_UNREACHABLE", "OPERATION_TIMEOUT"].includes(step.error_code));
     const serialized = await readFile(evidenceFile, "utf8");
     assert.doesNotMatch(serialized, /127\.0\.0\.1/);
   } finally { await rm(root, { recursive: true, force: true }); }

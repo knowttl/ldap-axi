@@ -17,6 +17,9 @@ ldap-axi auth status --offline
 See the [support matrix](docs/support-matrix.md#installing-from-npm) for native installation requirements and older package limitations.
 The executable is `ldap-axi`.
 Run `ldap-axi` with no arguments for the offline home view; see [skill installation hints](docs/design/v1.md#141-the-home-view) for its optional agent-host guidance.
+Use `ldap-axi user --help`, `ldap-axi group --help`, or `ldap-axi auth --help` to discover subcommands without connecting.
+Leaf help, such as `ldap-axi entry search --help` and `ldap-axi auth status --help`, lists flags, defaults, and usage examples.
+Unknown flags are rejected with exit 2 before connecting or binding.
 To build from source:
 
 ```sh
