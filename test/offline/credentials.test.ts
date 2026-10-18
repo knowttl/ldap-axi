@@ -117,6 +117,8 @@ for (const [command, collection] of [
   [["user", "show", "cn=synthetic,dc=example,dc=test"], "user"],
   [["group", "list"], "groups"],
   [["group", "show", "cn=synthetic,dc=example,dc=test"], "group"],
+  [["computer", "list"], "computers"],
+  [["computer", "show", "cn=synthetic,dc=example,dc=test"], "computer"],
 ] as const) test(`${command.join(" ")} redacts complete attributes before truncation`, async () => {
   await withHome(async home => {
     const password = "synthetic-long-password".repeat(60);

@@ -48,7 +48,7 @@ runtime-library requirements, and what is proved versus unproved - so status bel
 
 Stage 1 and stage 2 are implemented: the `src/` foundation, `entry search`, `entry show`, `user list`,
 `user show`, `user groups`, `group list`, `group show`, and `group members` all ship, and Phase 4 adds
-`auth status` plus the home view, with the remaining v1 command surface (`computer`, `server`, `setup`)
+`auth status` plus the home view, and `computer list` / `computer show` ship, with the remaining v1 command surface (`server`, `setup`)
 deferred to later stages.
 `auth status` is the one authentication diagnostic: it reports credential provenance, the recorded native
 provider status from `build/native-status.json`, the scheme-selected mechanism, the SASL security layer, and

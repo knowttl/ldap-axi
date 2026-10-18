@@ -15,13 +15,15 @@ import { render, renderError } from "./render.js";
 import { commandHelp, completeSchema, flagHelp, groupListSchema, groupMembersSchema, groupShowSchema, selectFields, userGroupsSchema, userListSchema, userShowSchema, type CommandSchema } from "./schema.js";
 import { listUsers, showUser, userGroups } from "./user.js";
 import { listGroups, showGroup, groupMembers } from "./group.js";
+import { listComputers, showComputer } from "./computer.js";
+import { computerListSchema, computerShowSchema } from "./schema.js";
 
 const commandGroups = {
   entry: ["search", "show"], user: ["list", "show", "groups"], group: ["list", "show", "members"],
-  auth: ["status"], profile: ["list"], config: ["path"],
+  computer: ["list", "show"], auth: ["status"], profile: ["list"], config: ["path"],
 } as const;
 type CommandGroup = keyof typeof commandGroups;
-type Command = CommandGroup | "home" | "entry search" | "entry show" | "user list" | "user show" | "user groups" | "group list" | "group show" | "group members" | "auth status" | "profile list" | "config path";
+type Command = CommandGroup | "home" | "entry search" | "entry show" | "user list" | "user show" | "user groups" | "group list" | "group show" | "group members" | "computer list" | "computer show" | "auth status" | "profile list" | "config path";
 export type RunDependencies = Readonly<{ openDirectory?: (options: ConnectOptions) => Promise<Directory>; executable?: string }>;
 type Parsed = Readonly<{ command: Command; flags: Readonly<Record<string, string | boolean>>; positionals: readonly string[] }>;
 const globalFlags = new Set(["help", "config", "url", "base", "start-tls", "ca-file", "ca-only", "tls-no-verify", "tls-max-version", "insecure-plaintext", "anonymous", "profile", "auth", "gssapi-service", "gssapi-protection"]);
@@ -32,16 +34,19 @@ const USER_GROUPS = completeSchema(userGroupsSchema("ad"), userGroupsSchema("lda
 const GROUP_LIST = completeSchema(groupListSchema("ad"), groupListSchema("ldapv3"));
 const GROUP_SHOW = completeSchema(groupShowSchema("ad"), groupShowSchema("ldapv3"));
 const GROUP_MEMBERS = completeSchema(groupMembersSchema("ad"), groupMembersSchema("ldapv3"));
+const COMPUTER_LIST = completeSchema(computerListSchema("ad"), computerListSchema("ldapv3"));
+const COMPUTER_SHOW = completeSchema(computerShowSchema("ad"), computerShowSchema("ldapv3"));
 const commandFlags: Record<Command, readonly string[]> = {
-  entry: [], user: [], group: [], auth: [], profile: [], config: [],
+  entry: [], user: [], group: [], computer: [], auth: [], profile: [], config: [],
   home: [], "entry search": ["filter", "scope", "attributes", "page-size", "max-rows", "all"], "entry show": ["attributes", "page-size"],
   "user list": [...USER_LIST.booleanFlags, ...USER_LIST.valueFlags], "user show": [...USER_SHOW.booleanFlags, ...USER_SHOW.valueFlags], "user groups": [...USER_GROUPS.booleanFlags, ...USER_GROUPS.valueFlags],
   "group list": [...GROUP_LIST.booleanFlags, ...GROUP_LIST.valueFlags], "group show": [...GROUP_SHOW.booleanFlags, ...GROUP_SHOW.valueFlags], "group members": [...GROUP_MEMBERS.booleanFlags, ...GROUP_MEMBERS.valueFlags],
   "auth status": ["offline"],
+  "computer list": [...COMPUTER_LIST.booleanFlags, ...COMPUTER_LIST.valueFlags], "computer show": [...COMPUTER_SHOW.booleanFlags, ...COMPUTER_SHOW.valueFlags],
   "profile list": [], "config path": [],
 };
-const FILTER_SHAPED_COMMANDS = new Set<Command>(["entry search", "user list", "group list"]);
-const IDENTIFIER_COMMANDS = new Set<Command>(["entry show", "user show", "user groups", "group show", "group members"]);
+const FILTER_SHAPED_COMMANDS = new Set<Command>(["entry search", "user list", "group list", "computer list"]);
+const IDENTIFIER_COMMANDS = new Set<Command>(["entry show", "user show", "user groups", "group show", "group members", "computer show"]);
 const values = new Set(["config", "url", "base", "ca-file", "tls-max-version", "profile", "auth", "gssapi-service", "gssapi-protection", "filter", "scope", "attributes", "page-size", "max-rows", "cursor", "name", "sam", "upn", "uid", "limit", "fields"]);
 function flagGuard(name: string): void { if (/password|passwd|secret|token|credential|key/i.test(name)) throw new Error(`secret-shaped flag --${name} is forbidden`); }
 for (const name of [...globalFlags, ...Object.values(commandFlags).flat()]) flagGuard(name);
@@ -60,11 +65,12 @@ function help(command: Parsed["command"]): string {
     "user list": [userListSchema("ad"), userListSchema("ldapv3")], "user show": [userShowSchema("ad"), userShowSchema("ldapv3")],
     "user groups": [userGroupsSchema("ad"), userGroupsSchema("ldapv3")], "group list": [groupListSchema("ad"), groupListSchema("ldapv3")],
     "group show": [groupShowSchema("ad"), groupShowSchema("ldapv3")], "group members": [groupMembersSchema("ad"), groupMembersSchema("ldapv3")],
+    "computer list": [computerListSchema("ad"), computerListSchema("ldapv3")], "computer show": [computerShowSchema("ad"), computerShowSchema("ldapv3")],
   };
   const schema = schemas[command];
   if (schema) return commandHelp(command, schema[0], schema[1], [...globalFlags]);
   if (command === "auth status") return `Reports the one selected authentication contract: credential provenance, native provider status, mechanism, SASL security layer, and TLS channel binding.\nUsage: ldap-axi auth status [flags]\nFlags:\n${flagHelp([...globalFlags, ...commandFlags[command]])}\nDefaults: one bind against the configured URL, and the server-resolved identity when the server advertises RFC 4532 Who Am I.\n--offline reports the selection without contacting the directory and performs no bind.\nExamples:\n  ldap-axi auth status --profile production\n  ldap-axi auth status --offline --url ldaps://directory.example.test`;
-  return "Read Active Directory and LDAPv3 directories.\nAuthentication defaults to auto and attempts one ambient GSSAPI context; failures are terminal and never select a password.\nUse --auth simple to preserve a configured bind identity.\nSelect configuration with --config <path> and --profile <name>.\nThe URL scheme selects the GSSAPI transport: verified TLS binds with no SASL security layer, plain ldap:// with a mandatory confidentiality layer.\nUse --tls-max-version 1.2 for verified TLS 1.2-only directory endpoints.\nCommands: entry search, entry show, user list, user show, user groups, group list, group show, group members, auth status, profile list, config path";
+  return "Read Active Directory and LDAPv3 directories.\nAuthentication defaults to auto and attempts one ambient GSSAPI context; failures are terminal and never select a password.\nUse --auth simple to preserve a configured bind identity.\nSelect configuration with --config <path> and --profile <name>.\nThe URL scheme selects the GSSAPI transport: verified TLS binds with no SASL security layer, plain ldap:// with a mandatory confidentiality layer.\nUse --tls-max-version 1.2 for verified TLS 1.2-only directory endpoints.\nCommands: entry search, entry show, user list, user show, user groups, group list, group show, group members, computer list, computer show, auth status, profile list, config path";
 }
 export function parse(argv: readonly string[]): Parsed {
   let index = 0; let command: Command = "home";
@@ -72,6 +78,7 @@ export function parse(argv: readonly string[]): Parsed {
   else if (argv[0] === "entry") { if (argv[1] === "search" || argv[1] === "show") { command = `entry ${argv[1]}` as Command; index = 2; } else throw new CliError("VALIDATION_ERROR", "unknown entry subcommand", ["Run `ldap-axi entry --help`"]); }
   else if (argv[0] === "user") { if (argv[1] === "list" || argv[1] === "show" || argv[1] === "groups") { command = `user ${argv[1]}` as Command; index = 2; } else throw new CliError("VALIDATION_ERROR", "unknown user subcommand", ["Run `ldap-axi user --help`"]); }
   else if (argv[0] === "group") { if (argv[1] === "list" || argv[1] === "show" || argv[1] === "members") { command = `group ${argv[1]}` as Command; index = 2; } else throw new CliError("VALIDATION_ERROR", "unknown group subcommand", ["Run `ldap-axi group --help`"]); }
+  else if (argv[0] === "computer") { if (argv[1] === "list" || argv[1] === "show") { command = `computer ${argv[1]}` as Command; index = 2; } else throw new CliError("VALIDATION_ERROR", "unknown computer subcommand", ["Run `ldap-axi computer --help`"]); }
   else if (argv[0] === "auth") { if (argv[1] === "status") { command = "auth status"; index = 2; } else throw new CliError("VALIDATION_ERROR", "unknown auth subcommand", ["Run `ldap-axi auth status --help`"]); }
   else if (argv[0] === "profile" || argv[0] === "config") { if (argv[0] === "profile" && argv[1] === "list" || argv[0] === "config" && argv[1] === "path") { command = `${argv[0]} ${argv[1]}` as Command; index = 2; } else throw new CliError("VALIDATION_ERROR", "unknown configuration subcommand", ["Run `ldap-axi profile list --help` or `ldap-axi config path --help`"]); }
   else if (argv[0]?.startsWith("-")) command = "home";
@@ -84,9 +91,9 @@ export function parse(argv: readonly string[]): Parsed {
   if (typeof flags["tls-max-version"] === "string") validateTlsMaxVersion(flags["tls-max-version"]);
   if (flags.anonymous && (flags.auth !== undefined || flags["gssapi-service"] !== undefined || flags["gssapi-protection"] !== undefined)) throw new CliError("VALIDATION_ERROR", "--anonymous cannot be combined with --auth, --gssapi-service, or --gssapi-protection");
   if (flags.base === "" && (command !== "entry search" || (flags.scope ?? "sub") !== "base")) throw new CliError("VALIDATION_ERROR", '--base "" requires --scope base for entry search');
-  if ((command === "entry search" || command === "user list" || command === "group list") && flags.all && !flags["max-rows"] && !flags.limit) throw new CliError("VALIDATION_ERROR", "--all requires --max-rows (or --limit) to keep output bounded");
+  if (FILTER_SHAPED_COMMANDS.has(command) && flags.all && !flags["max-rows"] && !flags.limit) throw new CliError("VALIDATION_ERROR", "--all requires --max-rows (or --limit) to keep output bounded");
   if ((command === "entry show" || IDENTIFIER_COMMANDS.has(command)) && positionals.length !== 1) throw new CliError("VALIDATION_ERROR", `${command} requires exactly one identifier or distinguished name`);
-  if ((command === "entry search" || command === "user list" || command === "group list" || command === "auth status" || command === "profile list" || command === "config path") && positionals.length) throw new CliError("VALIDATION_ERROR", `${command} accepts no positional arguments`);
+  if ((FILTER_SHAPED_COMMANDS.has(command) || command === "auth status" || command === "profile list" || command === "config path") && positionals.length) throw new CliError("VALIDATION_ERROR", `${command} accepts no positional arguments`);
   validateRequest(command, flags); return { command, flags, positionals };
 }
 function validateRequest(command: Parsed["command"], flags: Readonly<Record<string, string | boolean>>): void {
@@ -94,7 +101,7 @@ function validateRequest(command: Parsed["command"], flags: Readonly<Record<stri
   if (command === "user list" && flags.disabled && flags.enabled) throw new CliError("VALIDATION_ERROR", "--disabled and --enabled cannot be combined");
   if (command !== "home" && typeof flags.attributes === "string") assertAttributes(flags.attributes.split(","));
   if (typeof flags.fields === "string") {
-    const schemas: Partial<Record<Command, CommandSchema>> = { "user list": USER_LIST, "user show": USER_SHOW, "user groups": USER_GROUPS, "group list": GROUP_LIST, "group show": GROUP_SHOW, "group members": GROUP_MEMBERS };
+    const schemas: Partial<Record<Command, CommandSchema>> = { "user list": USER_LIST, "user show": USER_SHOW, "user groups": USER_GROUPS, "group list": GROUP_LIST, "group show": GROUP_SHOW, "group members": GROUP_MEMBERS, "computer list": COMPUTER_LIST, "computer show": COMPUTER_SHOW };
     const schema = schemas[command];
     if (schema) selectFields(schema, flags.fields.split(","));
   }
@@ -200,6 +207,8 @@ async function executeRun(argv: readonly string[], dependencies: RunDependencies
       else if (parsed.command === "user groups") result = await userGroups(opened.directory, { base: opened.base, flavor, identifier: parsed.positionals[0], pageSize: opened.pageSize, maxRows, nested: Boolean(parsed.flags.nested), fields: list(parsed.flags.fields) });
       else if (parsed.command === "group list") result = await listGroups(opened.directory, { base: opened.base, flavor, pageSize: opened.pageSize, maxRows, limit, all: Boolean(parsed.flags.all), scope, name: str(parsed.flags.name), sam: str(parsed.flags.sam), filter: str(parsed.flags.filter), fields: list(parsed.flags.fields), attributes: list(parsed.flags.attributes), redactor });
       else if (parsed.command === "group show") result = await showGroup(opened.directory, { base: opened.base, flavor, identifier: parsed.positionals[0], pageSize: opened.pageSize, fields: list(parsed.flags.fields), attributes: list(parsed.flags.attributes), redactor });
+      else if (parsed.command === "computer list") result = await listComputers(opened.directory, { base: opened.base, flavor, pageSize: opened.pageSize, maxRows, limit, all: Boolean(parsed.flags.all), scope, name: str(parsed.flags.name), sam: str(parsed.flags.sam), filter: str(parsed.flags.filter), fields: list(parsed.flags.fields), attributes: list(parsed.flags.attributes), redactor });
+      else if (parsed.command === "computer show") result = await showComputer(opened.directory, { base: opened.base, flavor, identifier: parsed.positionals[0], pageSize: opened.pageSize, fields: list(parsed.flags.fields), attributes: list(parsed.flags.attributes), redactor });
       else result = await groupMembers(opened.directory, { base: opened.base, flavor, identifier: parsed.positionals[0], pageSize: opened.pageSize, maxRows, nested: Boolean(parsed.flags.nested), fields: list(parsed.flags.fields) });
       return { stdout: render({ ...result.data, tls_verified: opened.tlsVerified }, result.help, redactor), stderr: transportWarning, exitCode: 0 };
     } finally { await opened.directory.close(); }

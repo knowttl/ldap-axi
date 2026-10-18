@@ -17,7 +17,7 @@ ldap-axi auth status --offline
 See the [support matrix](docs/support-matrix.md#installing-from-npm) for native installation requirements and older package limitations.
 The executable is `ldap-axi`.
 Run `ldap-axi` with no arguments for the offline home view; see [skill installation hints](docs/design/v1.md#141-the-home-view) for its optional agent-host guidance.
-Use `ldap-axi user --help`, `ldap-axi group --help`, or `ldap-axi auth --help` to discover subcommands without connecting.
+Use `ldap-axi user --help`, `ldap-axi group --help`, `ldap-axi computer --help`, or `ldap-axi auth --help` to discover subcommands without connecting.
 Leaf help, such as `ldap-axi entry search --help` and `ldap-axi auth status --help`, lists flags, defaults, and usage examples.
 Unknown flags are rejected with exit 2 before connecting or binding.
 To build from source:
@@ -203,9 +203,14 @@ See `docs/design/v1.md` §0, §1.5, §3, and §4.
 
 An ldap-axi release that needs directory write access is wrong.
 
-## Planned v1 surface
+## v1 command surface
 
 See [the support matrix](docs/support-matrix.md#command-surface) for implemented and planned commands, including offline configuration discovery.
+
+Read computers with `ldap-axi computer list --limit 100` and `ldap-axi computer show <identifier-or-dn>`.
+See the design's [computer flavor contract](docs/design/v1.md#54-flavor-neutral-and-flavor-specific-commands-stated-per-command) and [identifier resolution rules](docs/design/v1.md#55-identifier-resolution-for-user-show-group-show-and-computer-show) for AD machine accounts and the generic LDAPv3 device fallback.
+Use `--fields` to select flavor-supported output and `--attributes` to request safe raw attributes.
+Lists read one page by default; use `--all --max-rows <n>` for a bounded walk across pages.
 
 The design states per command which behavior is flavor-neutral and which is flavor-specific, and every group
 membership result reports whether it is transitive and how it was derived, because a direct-membership answer
