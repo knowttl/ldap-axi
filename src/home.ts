@@ -7,7 +7,7 @@ export const COMMANDS = [
   "user list", "user show", "user groups",
   "group list", "group show", "group members",
   "computer list", "computer show",
-  "auth status",
+  "auth status", "server",
   "profile list", "config path",
 ] as const;
 

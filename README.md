@@ -20,6 +20,9 @@ Run `ldap-axi` with no arguments for the offline home view; see [skill installat
 Use `ldap-axi user --help`, `ldap-axi group --help`, `ldap-axi computer --help`, or `ldap-axi auth --help` to discover subcommands without connecting.
 Leaf help, such as `ldap-axi entry search --help` and `ldap-axi auth status --help`, lists flags, defaults, and usage examples.
 Unknown flags are rejected with exit 2 before connecting or binding.
+Run `ldap-axi server --profile <name>` to inspect rootDSE naming contexts, controls, extensions, SASL mechanisms, vendor facts, and advertised limits without selecting a search base.
+The report shows both detected and configured flavor, marks any override explicitly, and omits absent optional facts.
+Policy names do not establish effective limit values; missing values are reported as `not advertised`.
 To build from source:
 
 ```sh

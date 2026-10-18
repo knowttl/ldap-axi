@@ -31,7 +31,7 @@ export interface Directory {
   close(): Promise<void>;
 }
 
-export const ROOT_DSE_ATTRIBUTES = ["supportedCapabilities", "supportedControl", "supportedExtension", "supportedLDAPVersion", "supportedSASLMechanisms", "namingContexts", "vendorName", "vendorVersion", "subschemaSubentry", "defaultNamingContext"] as const;
+export const ROOT_DSE_ATTRIBUTES = ["supportedCapabilities", "supportedControl", "supportedExtension", "supportedLDAPVersion", "supportedSASLMechanisms", "namingContexts", "vendorName", "vendorVersion", "subschemaSubentry", "defaultNamingContext", "rootDomainNamingContext", "configurationNamingContext", "schemaNamingContext", "dnsHostName", "serverName", "domainFunctionality", "forestFunctionality", "domainControllerFunctionality", "isGlobalCatalogReady", "supportedLDAPPolicies", "currentTime", "maxPageSize", "maxQueryDuration", "sizeLimit", "timeLimit"] as const;
 export const PASSWORD_ATTRIBUTES = new Set(["userpassword", "unicodepwd"]);
 export function attributeBaseName(description: string): string { return description.split(";", 1)[0]; }
 
