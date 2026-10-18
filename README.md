@@ -1,23 +1,23 @@
 # ldap-axi
 
 An agent-facing CLI for reading LDAP directories from the shell, built to the
-[AXI](https://agentskills.io) standard for CLI tools that autonomous agents drive through shell execution.
+[AXI](https://github.com/kunchenguid/axi) standard for CLI tools that autonomous agents drive through shell execution.
 
 Active Directory and generic LDAPv3 are both first-class targets, and the tool runs on Linux and Windows.
 
 ## Install
 
-Once 0.1.5 is published, install it with Node 24.11.0 or newer:
+Install version 0.1.5 with Node 24.11.0 or newer:
 
 ```sh
 npm install --global @knowttl/ldap-axi@0.1.5
 ldap-axi auth status --offline
 ```
 
-See the [support matrix](docs/support-matrix.md#installing-from-npm-before-native-release-assets-exist) for native installation requirements and the distinction between bootstrap and tag-workflow packages.
+See the [support matrix](docs/support-matrix.md#installing-from-npm) for native installation requirements and older package limitations.
 The executable is `ldap-axi`.
 Run `ldap-axi` with no arguments for the offline home view; see [skill installation hints](docs/design/v1.md#141-the-home-view) for its optional agent-host guidance.
-Until 0.1.5 is published, use a source checkout:
+To build from source:
 
 ```sh
 git clone https://github.com/knowttl/ldap-axi.git
@@ -163,19 +163,17 @@ ldap-axi user list --auth gssapi --url ldap://dc01.example.test:389 --limit 10
 The same scheme-selected confidentiality and TLS trust rules apply on Windows.
 For LDAPS/StartTLS, supply a trusted CA with `--ca-file C:\certs\corporate-root.pem` or `NODE_EXTRA_CA_CERTS`; keep verification enabled.
 
-## Development
+## Local testing and contributing
 
 ```sh
-npm install
+npm ci
 npm run verify
 ```
 
 For installation from a GitHub release archive on Windows or Linux, see [release installation](docs/support-matrix.md#installing-a-github-release-archive).
 
-The required checks are offline and use synthetic fixtures.
-The opt-in Linux/Docker `npm run test:local-directory` suite stays outside that gate.
-Manual live verification is described in [the design](docs/design/v1.md#19-live-tests-never-in-ci) and is never run automatically.
-Only the native-prebuild and manual local-directory GitHub Actions workflows are authorized; neither receives directory credentials.
+Run the required checks locally with Node 24.11.0 or newer; they are offline and use synthetic fixtures.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development checks and optional integration testing, and [SECURITY.md](SECURITY.md) for private vulnerability reporting.
 
 ## Read-only
 

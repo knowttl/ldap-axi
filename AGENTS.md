@@ -8,8 +8,8 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 
 **ldap-axi v1 requires only directory read access and implements no add, modify, modifyDN, rename, move,
 delete, password-set, password-reset, or write-capable extended operation.**
-This is a captain-set, binding architectural invariant.
-Relaxing it is a captain decision, never an agent's; if a task seems to require a mutation, stop and escalate.
+This is a binding architectural invariant throughout v1.
+No agent may relax it; if a task seems to require a mutation, stop and escalate.
 
 Four consequences that catch people out, and LDAP is worse for this than any sibling project:
 
@@ -41,7 +41,7 @@ Read it before adding or changing any command surface, and update it in the same
 moves.
 Its §20 records open questions; check there before re-deriving a decision that was already argued, and its
 §21 cites every source, so a claim can be re-verified rather than trusted.
-§20.1 records the captain holds already closed and what closed them, §20.2 the questions still recorded rather
+§20.1 records the resolved design constraints and their enforcement, §20.2 the questions still recorded rather
 than answered, and §21 opens with the only live-directory evidence this project has.
 `docs/support-matrix.md` is the status surface - command states, platforms, native-provider rules, the Linux
 runtime-library requirements, and what is proved versus unproved - so status belongs there, not in `README.md`.
@@ -60,7 +60,7 @@ read-only sequence, GSSAPI tracing, and a redacted evidence file written outside
 Phase B adds the auth planner, the in-repository patched optional `kerberos@7.0.0` provider, RFC 4752 security-layer negotiation, and sealed binary GSSAPI/SASL transport;
 the package root verifies a target prebuild or falls back to `vendor/kerberos` source, loads it only from `src/directory/gssapi.ts`, and keeps the protected client transport behind the directory boundary.
 `build/native-status.json` is the provider loader's source of truth, not a report: a recorded `unavailable` install is refused, a recorded `installed` install must load `build/Release/kerberos.node`, and only a missing status file admits the verified bundled prebuild.
-This is the captain-authorized narrow exception to the native-addon, `node-gyp`, and `node:child_process` bans: only package install and target-native prebuild scripts may run the pinned build tool, while runtime directory code and external LDAP or platform tools remain forbidden.
+This is the narrow exception to the native-addon, `node-gyp`, and `node:child_process` bans: only package install and target-native prebuild scripts may run the pinned build tool, while runtime directory code and external LDAP or platform tools remain forbidden.
 `npm run verify` is the single entry point for the complete local required-check set described in
 `docs/design/v1.md` §18.5 and §19.4.
 The opt-in `npm run test:local-directory` (Linux and Docker only) provisions an ephemeral Samba AD DC plus an OpenLDAP/MIT KDC mock and is
@@ -166,7 +166,7 @@ and 30828. `objectGUID` is mixed-endian, so a straight hex dump does not match A
 ## Cross-platform is a requirement, not a nice-to-have
 
 v1 must run on Linux and Windows.
-Native addons, `node-gyp`, and `node:child_process` are forbidden except for the captain-authorized package install and target-native prebuild scripts described above.
+Native addons, `node-gyp`, and `node:child_process` are forbidden except for the package install and target-native prebuild scripts described above.
 Runtime code must never shell out to `ldapsearch`, `ldp.exe`, `dsquery`, PowerShell, or any other platform tool, and the architecture test rejects `node:child_process` throughout `src/`.
 Compose paths with `node:path`; resolve config under `%APPDATA%` on Windows and XDG elsewhere.
 
@@ -204,8 +204,8 @@ reviewing any CLI behavior here.
 
 ## GitHub Actions boundary
 
-The captain-authorized native prebuild workflow may build and behavior-test the Linux glibc x64 and Windows x64 provider artifacts, run `npm run verify` on the Windows runner, attest tagged artifacts, and attach them to the matching GitHub release.
-The captain-authorized local-directory workflow runs `docs/design/v1.md` §18.4's suites from a manual workflow dispatch only.
+The native prebuild workflow may build and behavior-test the Linux glibc x64 and Windows x64 provider artifacts, run `npm run verify` on the Windows runner, attest tagged artifacts, and attach them to the matching GitHub release.
+The local-directory workflow runs `docs/design/v1.md` §18.4's suites from a manual workflow dispatch only.
 Neither may ever receive directory credentials or run live-directory tests.
 No other GitHub Actions workflow is authorized, and the architecture lint enforces that list.
 

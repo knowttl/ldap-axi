@@ -60,7 +60,7 @@ development headers; Windows source builds need node-gyp, MSVC, and the Windows 
 
 ### Installing a GitHub release archive
 
-Once the tested `v0.1.5` release assets are published, download `knowttl-ldap-axi-0.1.5.tgz` from the
+Download the published `knowttl-ldap-axi-0.1.5.tgz` from the
 [GitHub release](https://github.com/knowttl/ldap-axi/releases/tag/v0.1.5), then run the following from the download directory with Node `>=24.11.0`.
 Use the packaged `.tgz` asset, which contains the release-pinned native digests; GitHub's automatically generated source archives and a source checkout do not contain the Windows release digest.
 
@@ -92,13 +92,13 @@ This offline command makes no directory connection and does not prove ambient cr
 Without `LDAP_AXI_NATIVE_MODE=prebuild`, automatic mode attempts one source build if the verified prebuild cannot be installed, requiring the build tools listed above.
 Explicit `--auth simple` remains available if the native provider is unavailable.
 
-### Installing from npm before native release assets exist
+### Installing from npm
 
 See [the README](../README.md) for the npm package name and common installation commands.
 The 0.1.0 bootstrap package retains the source tree's bundled Linux prebuild and Linux-only digest manifest.
 It does not provide a compiler-free Windows native installation: without a pinned Windows manifest entry, automatic mode needs MSVC and the Windows SDK for its source fallback.
 Publishing Windows release assets later cannot add a digest to an already-published npm package.
-Packages published through the tag workflow contain both release-pinned digests and support the same compiler-free installation as the [release-packed archive](#installing-a-github-release-archive).
+Version 0.1.5 contains both release-pinned digests and supports the same compiler-free installation as the [release-packed archive](#installing-a-github-release-archive).
 
 ## Linux runtime libraries, and the Nix/WSL hazard
 
@@ -142,7 +142,7 @@ claim.
 
 ## Release and provenance
 
-Two captain-authorized workflows run in GitHub Actions and no other: the native prebuild workflow and the
+Two workflows run in GitHub Actions: the native prebuild workflow and the
 manually dispatched local-directory workflow.
 Neither receives directory credentials, and neither runs a live-directory test.
 On a version tag the native prebuild workflow pins both build-job digests, packs and publishes with npm
