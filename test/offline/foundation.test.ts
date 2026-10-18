@@ -103,7 +103,7 @@ test("a served rootDSE entry maps into attributes and flavor detection", async (
     if (operation.tag !== 0x63) return;
     const messageId = id.value.readUIntBE(0, id.value.length);
     socket.write(Buffer.concat([
-      searchResultEntry(messageId, { supportedCapabilities: ["1.2.840.113556.1.4.800"], defaultNamingContext: ["DC=example,DC=test"] }),
+      searchResultEntry(messageId, { supportedCapabilities: ["1.2.840.113556.1.4.800"], defaultNamingContext: ["DC=example,DC=test"], supportedLDAPPolicies: ["MaxPageSize"], maxPageSize: ["250"], configurationNamingContext: ["CN=Configuration,DC=example,DC=test"] }),
       searchResultDone(messageId),
     ]));
   }));
@@ -113,6 +113,9 @@ test("a served rootDSE entry maps into attributes and flavor detection", async (
     assert.equal(directory.flavor, "ad");
     const root = await directory.rootDSE();
     assert.deepEqual(root.attributes.defaultNamingContext, ["DC=example,DC=test"]);
+    assert.deepEqual(root.attributes.supportedLDAPPolicies, ["MaxPageSize"]);
+    assert.deepEqual(root.attributes.maxPageSize, ["250"]);
+    assert.deepEqual(root.attributes.configurationNamingContext, ["CN=Configuration,DC=example,DC=test"]);
     const result = await searchEntries(directory, { base: "", filter: "(objectClass=*)", scope: "base", attributes: ["supportedCapabilities"], pageSize: 500, all: false });
     assert.equal(result.data.count, "1 of 1 total");
     assert.equal(result.data.incomplete, undefined);
