@@ -163,7 +163,7 @@ jobs:
       - name: Pack release commit
         if: steps.resume.outputs.reused != 'true'
         run: mkdir -p package && npm pack --pack-destination package
-      - uses: actions/attest-build-provenance@v2
+      - uses: actions/attest-build-provenance@v4
         with:
           subject-path: |
             release/*.node
