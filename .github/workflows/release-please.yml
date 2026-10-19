@@ -18,11 +18,27 @@ jobs:
       contents: write
       issues: write
       pull-requests: write
+    outputs:
+      released: ${{ steps.release.outputs.release_created }}
+      tag: ${{ steps.release.outputs.tag_name }}
+      sha: ${{ steps.release.outputs.sha }}
     steps:
       - uses: googleapis/release-please-action@v4
+        id: release
         with:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
           target-branch: main
-          # Tag-to-native-workflow integration must land before enabling releases.
-          skip-github-release: true
+
+  native-release:
+    needs: release-pr
+    if: needs.release-pr.outputs.released == 'true'
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    uses: ./.github/workflows/native-prebuilds.yml
+    with:
+      tag: ${{ needs.release-pr.outputs.tag }}
+      sha: ${{ needs.release-pr.outputs.sha }}
+    secrets: inherit

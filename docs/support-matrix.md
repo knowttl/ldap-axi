@@ -145,13 +145,17 @@ claim.
 
 Three workflows run in GitHub Actions: native prebuilds, manually dispatched local-directory checks, and release PR automation.
 None receives directory credentials or runs a live-directory test.
-Release Please currently opens version pull requests only; merging one does not create a tag, publish an npm package, or publish a GitHub release.
-Automatic tag creation and native-workflow integration remain deferred.
-See [Release changes](../CONTRIBUTING.md#release-changes) for commit conventions, generated changelog ownership, and the required manual label transition after publication.
+Release Please creates a version tag and draft after a version pull request merges and explicitly calls the native workflow with the exact tag and commit, because tags created with `GITHUB_TOKEN` do not trigger another workflow.
+Native automation runs only for releases, through that call, a manual dispatch with an existing tag, or a version-tag push.
+Release planning requires the resolved tag commit to equal the workflow event source commit and any caller-supplied commit before attestation or publication; dispatching from `main` for a different commit fails.
+The tag must also match the package version at that commit.
+All entry points share one concurrency group per tag; after those checks, a public release is a no-op.
+See [Release changes](../CONTRIBUTING.md#release-changes) for commit conventions, curated notes, and recovery.
 Release candidates are configured as drafts with exact `v<package-version>` tags and no component prefix.
-On a version tag the native prebuild workflow pins both build-job digests, packs and publishes with npm
-provenance using the configured `NPM_TOKEN` secret, attests the binaries and the package, and attaches the matching assets to the release.
-After the Windows clean consumer succeeds, the workflow publishes the exact tested archive with `npm publish ./package/*.tgz --access public --provenance`, then promotes the GitHub release from draft to public only if npm publication succeeds.
+The native prebuild workflow validates and pins both build-job digests, packs the package, attests the binaries and the package, and stages the matching assets on the draft release.
+Recovery reuses the staged archive, binaries, and digests only when all required assets are present and exactly one package archive exists; partial uploads are rebuilt and restaged, and ambiguous archives are rejected.
+After the Windows clean consumer succeeds, the workflow publishes the exact tested archive with `npm publish <archive> --access public --provenance` using the configured `NPM_TOKEN` secret, then promotes the GitHub release from draft to public.
+If that npm version already exists, its registry integrity must match the tested archive before promotion can resume without republishing.
 If npm publication fails, the GitHub release remains in draft.
 The binaries are not Authenticode or platform-code-signed, and package installation does not independently
 verify the attestation.

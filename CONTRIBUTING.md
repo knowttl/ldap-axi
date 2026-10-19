@@ -44,16 +44,15 @@ Release Please uses those messages to open a version pull request against `main`
 Do not create or edit `CHANGELOG.md` by hand.
 Review the generated version and notes before merging a release pull request.
 
-See the [release and provenance contract](docs/support-matrix.md#release-and-provenance) for the current automation limits and draft-release publication requirements.
-After the version pull request merges and the native release successfully publishes its matching tag, replace `PR_NUMBER` with that merged pull request's number and run:
+Merging the version pull request starts the [release and provenance workflow](docs/support-matrix.md#release-and-provenance).
+Release Please transitions the merged pull request from `autorelease: pending` to `autorelease: tagged`.
 
-```sh
-gh pr edit PR_NUMBER --repo knowttl/ldap-axi --remove-label 'autorelease: pending' --add-label 'autorelease: tagged'
-```
+Add optional curated release notes at `docs/releases/<version>.md` in the version pull request, without the `v` prefix.
+The matching file becomes the GitHub release body; when absent, generated release notes are retained.
+An empty or unreadable notes file fails the release.
 
-Until this label transition is complete, Release Please blocks subsequent version pull requests even if the tag already exists.
-The next push to `main` can open the next version pull request after the transition.
-Automatic label transition is deferred to the next native release integration change.
+For recovery, rerun the failed workflow or dispatch `Native prebuilds` at the existing version tag, selecting that same tag as both the workflow ref and the `tag` input.
+See the [release contract](docs/support-matrix.md#release-and-provenance) for commit checks, asset reuse, and publication recovery requirements.
 
 ## Compatibility
 
