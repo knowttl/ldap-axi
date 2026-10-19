@@ -145,9 +145,10 @@ claim.
 
 Three workflows run in GitHub Actions: native prebuilds, manually dispatched local-directory checks, and release PR automation.
 None receives directory credentials or runs a live-directory test.
-Release Please currently opens version pull requests only; merging one does not create a tag, publish an npm package, or publish a GitHub release.
-Automatic tag creation and native-workflow integration remain deferred.
-See [Release changes](../CONTRIBUTING.md#release-changes) for commit conventions, generated changelog ownership, and the required manual label transition after publication.
+Release Please creates a version tag and draft after a version pull request merges, updates its release labels, and explicitly calls the native workflow with the exact tag and commit.
+Native automation runs only for releases, through that call, a manual dispatch with an existing tag, or a version-tag push.
+All entry points share one concurrency group per tag; a public release is a no-op.
+See [Release changes](../CONTRIBUTING.md#release-changes) for commit conventions, curated notes, and recovery.
 Release candidates are configured as drafts with exact `v<package-version>` tags and no component prefix.
 On a version tag the native prebuild workflow pins both build-job digests, packs and publishes with npm
 provenance using the configured `NPM_TOKEN` secret, attests the binaries and the package, and attaches the matching assets to the release.
