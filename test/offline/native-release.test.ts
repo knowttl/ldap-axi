@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import test from "node:test";
 import { pathToFileURL } from "node:url";
+import { parse } from "yaml";
 
 const helperPath = resolve("scripts/native-release.mjs");
 const { releasePlan, releaseNotes, windowsAsset, publishPackage, stagedArchive } = await import(pathToFileURL(helperPath).href);
@@ -88,11 +89,15 @@ function digest(bytes: Buffer): string {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
-for (const environment of [
-  { RELEASE_TAG: "v1.2.3", GITHUB_REF_NAME: "main", GITHUB_EVENT_NAME: "push", GITHUB_REF_TYPE: "branch" },
-  { RELEASE_TAG: "", GITHUB_REF_NAME: "v1.2.3", GITHUB_EVENT_NAME: "push", GITHUB_REF_TYPE: "tag" },
+for (const { script, workflowStep, environment } of [
+  { script: "scripts/assemble-native-release.mjs", workflowStep: true,
+    environment: { RELEASE_TAG: "v1.2.3", GITHUB_REF_NAME: "main", GITHUB_EVENT_NAME: "workflow_dispatch", GITHUB_REF_TYPE: "branch" } },
+  { script: "test/support/assemble-native-release-v0.2.0.mjs", workflowStep: true,
+    environment: { RELEASE_TAG: "v1.2.3", GITHUB_REF_NAME: "main", GITHUB_EVENT_NAME: "workflow_dispatch", GITHUB_REF_TYPE: "branch" } },
+  { script: "scripts/assemble-native-release.mjs", workflowStep: false,
+    environment: { RELEASE_TAG: "", GITHUB_REF_NAME: "v1.2.3", GITHUB_EVENT_NAME: "push", GITHUB_REF_TYPE: "tag" } },
 ]) {
-  test(`release assembly keeps checksums aligned using ${environment.RELEASE_TAG ? "the explicit release tag on main" : "the tag-push ref"}`, async () => {
+  test(`release assembly keeps checksums aligned using ${workflowStep ? `recovery on main with ${script}` : "the tag-push ref"}`, async () => {
     const fixture = resolve(`.tmp/native-release-${randomUUID()}`);
     const release = join(fixture, "release");
     const prebuilds = join(fixture, "prebuilds");
@@ -113,11 +118,23 @@ for (const environment of [
         await writeFile(join(release, `${asset}.sha256`), `${digest(bytes)}  ${asset}\n`);
       }
 
-      execFileSync(process.execPath, [resolve("scripts/assemble-native-release.mjs"), release], {
+      const options = {
         cwd: fixture,
         env: { ...process.env, ...environment, RELEASE_TAG: environment.RELEASE_TAG || undefined },
-        stdio: "pipe",
-      });
+        stdio: "pipe" as const,
+      };
+      if (workflowStep) {
+        const workflow = parse(await readFile(".github/workflows/native-prebuilds.yml", "utf8"));
+        const step = workflow.jobs["release-stage"].steps.find((step: any) => step.name === "Pin release digests in package manifest");
+        await mkdir(join(fixture, "scripts"));
+        await copyFile(script, join(fixture, "scripts/assemble-native-release.mjs"));
+        if (script === "test/support/assemble-native-release-v0.2.0.mjs") {
+          assert.throws(() => execFileSync(process.execPath, ["scripts/assemble-native-release.mjs", "release"], options), /tag main does not match package version 1.2.3/);
+        }
+        execFileSync("bash", ["--noprofile", "--norc", "-e", "-o", "pipefail", "-c", step.run], options);
+      } else {
+        execFileSync(process.execPath, [resolve(script), release], options);
+      }
 
       const bundled = await readFile(join(prebuilds, "linux-glibc-x64", "kerberos.node"));
       const checksum = (await readFile(join(prebuilds, "linux-glibc-x64", "kerberos.node.sha256"), "utf8")).trim().split(/\s+/, 1)[0];
