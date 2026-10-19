@@ -202,24 +202,45 @@ test("the live smoke script refuses to run without the explicit live opt-in", ()
   assert.match(withoutUrl.stderr, /--url/);
 });
 
-test("the live smoke script writes redacted evidence for every step of its fixed sequence", async () => {
+for (const errorCode of ["SERVER_UNREACHABLE", "OPERATION_TIMEOUT"]) test(`the live smoke script records ${errorCode} in redacted evidence for every connecting step`, async () => {
   const root = await mkdtemp(join(tmpdir(), "ldap-axi-live-smoke-"));
   const evidenceFile = join(root, "evidence.json");
   try {
-    const result = spawnSync(process.execPath, ["scripts/live-smoke.mjs", "--out", evidenceFile, "--url", "ldap://127.0.0.1:1", "--anonymous", "--insecure-plaintext"], {
-      env: { ...process.env, LDAP_AXI_LIVE: "1", LDAP_AXI_CONFIG: join(process.cwd(), "test", "nonexistent-config.json"), LDAP_AXI_CREDENTIALS_FILE: join(process.cwd(), "test", "nonexistent-credentials.env") },
+    // Keep the script and CLI real; replace only the directory-opening boundary.
+    const source = `
+      import { mock } from "node:test";
+      process.argv = [process.execPath, "scripts/live-smoke.mjs", ...process.argv.slice(1)];
+      const { run } = await import("./dist/src/cli.js");
+      const { CliError } = await import("./dist/src/core.js");
+      let attempts = 0;
+      mock.module("./dist/src/cli.js", { namedExports: {
+        run: argv => run(argv, { openDirectory: async () => {
+          attempts++;
+          throw new CliError(${JSON.stringify(errorCode)}, "Synthetic failure at directory.example.test");
+        } }),
+      } });
+      await import("./scripts/live-smoke.mjs");
+      console.log("directory_open_attempts:", attempts);
+    `;
+    const result = spawnSync(process.execPath, ["--experimental-test-module-mocks", "--input-type=module", "--eval", source, "--", "--out", evidenceFile, "--url", "ldap://directory.example.test", "--anonymous", "--insecure-plaintext"], {
+      env: { ...process.env, ...isolatedConfig(), LDAP_AXI_LIVE: "1" },
       encoding: "utf8",
+      timeout: 10_000,
     });
+    assert.equal(result.error, undefined);
     assert.equal(result.status, 1, result.stderr);
+    assert.equal(result.stdout.trim().split("\n").at(-1), "directory_open_attempts: 4");
     const evidence = JSON.parse(await readFile(evidenceFile, "utf8"));
     assert.equal(evidence.url_scheme, "ldap");
     assert.deepEqual(evidence.steps.map((step: { step: string }) => step.step), ["home", "auth status (offline)", "auth status", "rootDSE read", "user list", "group list"]);
     assert.equal(evidence.steps[0].exit_code, 0);
     assert.ok(evidence.steps[0].keys.includes("commands[15]"));
     assert.equal(evidence.steps[1].exit_code, 0);
-    // A filtered loopback port can time out instead of refusing the connection.
-    for (const step of evidence.steps.slice(3)) assert.match(step.error_code, /^(SERVER_UNREACHABLE|OPERATION_TIMEOUT)$/);
+    for (const step of evidence.steps.slice(2)) {
+      assert.equal(step.exit_code, 1);
+      assert.equal(step.error_code, errorCode);
+    }
     const serialized = await readFile(evidenceFile, "utf8");
-    assert.doesNotMatch(serialized, /127\.0\.0\.1/);
+    assert.doesNotMatch(serialized, /directory\.example\.test|Synthetic failure/);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
