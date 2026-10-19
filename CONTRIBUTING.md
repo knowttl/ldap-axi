@@ -44,20 +44,15 @@ Release Please uses those messages to open a version pull request against `main`
 Do not create or edit `CHANGELOG.md` by hand.
 Review the generated version and notes before merging a release pull request.
 
-Merging the version pull request creates its exact version tag and a draft GitHub release.
-Release Please transitions the merged pull request from `autorelease: pending` to `autorelease: tagged` and explicitly calls the native release workflow, because tags created with `GITHUB_TOKEN` do not trigger another workflow.
-The native workflow builds and tests the assets, tests the staged Windows consumer, publishes the tested npm archive with provenance, and then promotes the draft.
-See the [release and provenance contract](docs/support-matrix.md#release-and-provenance) for prerequisites and limits.
+Merging the version pull request starts the [release and provenance workflow](docs/support-matrix.md#release-and-provenance).
+Release Please transitions the merged pull request from `autorelease: pending` to `autorelease: tagged`.
 
 Add optional curated release notes at `docs/releases/<version>.md` in the version pull request, without the `v` prefix.
 The matching file becomes the GitHub release body; when absent, generated release notes are retained.
 An empty or unreadable notes file fails the release.
 
 For recovery, rerun the failed workflow or dispatch `Native prebuilds` at the existing version tag, selecting that same tag as both the workflow ref and the `tag` input.
-Release planning requires the resolved tag commit to equal the workflow event source commit before attestation or publication; dispatching from `main` for a different commit fails.
-Manual version-tag pushes enter the same workflow and share a concurrency group with automatic releases.
-Public releases are skipped, complete draft assets are reused, and an already published npm version must have the exact tested archive's integrity before promotion can resume.
-Partial draft uploads are rebuilt and restaged; publication failures leave the release in draft.
+See the [release contract](docs/support-matrix.md#release-and-provenance) for commit checks, asset reuse, and publication recovery requirements.
 
 ## Compatibility
 
