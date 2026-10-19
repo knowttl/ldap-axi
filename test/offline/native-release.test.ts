@@ -95,9 +95,13 @@ for (const { script, workflowStep, environment } of [
   { script: "test/support/assemble-native-release-v0.2.0.mjs", workflowStep: true,
     environment: { RELEASE_TAG: "v1.2.3", GITHUB_REF_NAME: "main", GITHUB_EVENT_NAME: "workflow_dispatch", GITHUB_REF_TYPE: "branch" } },
   { script: "scripts/assemble-native-release.mjs", workflowStep: false,
+    environment: { RELEASE_TAG: "v1.2.3", GITHUB_REF_NAME: "main", GITHUB_EVENT_NAME: "workflow_dispatch", GITHUB_REF_TYPE: "branch" } },
+  { script: "scripts/assemble-native-release.mjs", workflowStep: false,
     environment: { RELEASE_TAG: "", GITHUB_REF_NAME: "v1.2.3", GITHUB_EVENT_NAME: "push", GITHUB_REF_TYPE: "tag" } },
 ]) {
-  test(`release assembly keeps checksums aligned using ${workflowStep ? `recovery on main with ${script}` : "the tag-push ref"}`, async () => {
+  test(`release assembly keeps checksums aligned using ${workflowStep ? `recovery on main with ${script}` : environment.RELEASE_TAG ? "the explicit release tag on main" : "the tag-push ref"}`, {
+    skip: workflowStep && process.platform !== "linux" ? "Ubuntu workflow shell regression requires Linux" : false,
+  }, async () => {
     const fixture = resolve(`.tmp/native-release-${randomUUID()}`);
     const release = join(fixture, "release");
     const prebuilds = join(fixture, "prebuilds");
