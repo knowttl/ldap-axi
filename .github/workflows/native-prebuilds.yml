@@ -35,7 +35,7 @@ jobs:
       sha: ${{ steps.plan.outputs.sha }}
       active: ${{ steps.plan.outputs.active }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with:
           node-version: 24.11.0
@@ -53,7 +53,7 @@ jobs:
     container: rockylinux/rockylinux@sha256:f5529992e67440c1a4ae7788244d4381c6909159a88eacd95b7523ae47ced82e
     steps:
       - run: dnf install --assumeyes gcc gcc-c++ krb5-devel make python3.11 binutils
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.release-plan.outputs.sha }}
       - uses: actions/setup-node@v4
@@ -87,7 +87,7 @@ jobs:
     needs: [release-plan, linux-build-test]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.release-plan.outputs.sha }}
       - uses: actions/setup-node@v4
@@ -107,7 +107,7 @@ jobs:
     # A bounded job: the whole verify gate must fail loudly rather than hold a runner indefinitely.
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.release-plan.outputs.sha }}
       - uses: actions/setup-node@v4
@@ -137,7 +137,7 @@ jobs:
       id-token: write
       attestations: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.release-plan.outputs.sha }}
       - uses: actions/setup-node@v4
@@ -186,7 +186,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.release-plan.outputs.sha }}
       - uses: actions/setup-node@v4
@@ -221,7 +221,7 @@ jobs:
       contents: write
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.release-plan.outputs.sha }}
       - uses: actions/setup-node@v4
