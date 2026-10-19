@@ -159,6 +159,8 @@ jobs:
       - name: Pin release digests in package manifest
         run: node scripts/assemble-native-release.mjs release
         env:
+          RELEASE_TAG: ${{ needs.release-plan.outputs.tag }}
+          # Older release tags read only GITHUB_REF_NAME; keep recovery compatible.
           GITHUB_REF_NAME: ${{ needs.release-plan.outputs.tag }}
       - name: Pack release commit
         if: steps.resume.outputs.reused != 'true'

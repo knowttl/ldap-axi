@@ -136,6 +136,10 @@ test("native release promotion depends on staged package consumption", async () 
     if (name === "linux-build-test" || name === "windows-build-test") assert.equal(job.if, "needs.release-plan.outputs.active == 'true'");
   }
   const stage = jobs["release-stage"].steps;
+  assert.deepEqual(stage.find((step: any) => step.name === "Pin release digests in package manifest").env, {
+    RELEASE_TAG: "${{ needs.release-plan.outputs.tag }}",
+    GITHUB_REF_NAME: "${{ needs.release-plan.outputs.tag }}",
+  });
   assert.equal(stage.find((step: any) => step.name === "Pack release commit").if, "steps.resume.outputs.reused != 'true'");
   const publisher = jobs["release-publish"].steps;
   assert.equal(publisher.find((step: any) => step.name === "Publish exact tested npm package with provenance").run, "node scripts/native-release.mjs publish");
