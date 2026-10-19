@@ -25,9 +25,10 @@ export async function releaseNotes(tag, generated, read = readFile) {
   }
 }
 
-export function releasePlan(tag, sha, expected, release) {
+export function releasePlan(tag, sha, expected, eventSha, release) {
   validateTag(tag);
   if (!/^[a-f0-9]{40}$/.test(sha) || (expected && expected !== sha)) throw new Error("tag does not match the release commit");
+  if (eventSha !== sha) throw new Error("workflow event source commit must match the release tag commit");
   return { tag, sha, active: !release || release.draft };
 }
 
@@ -71,7 +72,7 @@ async function main() {
     let object = api(`git/ref/tags/${tag}`).object;
     while (object.type === "tag") object = api(`git/tags/${object.sha}`).object;
     if (object.type !== "commit") throw new Error("release tag must resolve to a commit");
-    const plan = releasePlan(tag, object.sha, process.env.RELEASE_SHA, getRelease());
+    const plan = releasePlan(tag, object.sha, process.env.RELEASE_SHA, process.env.GITHUB_SHA, getRelease());
     const pkg = api(`contents/package.json?ref=${plan.sha}`);
     if (JSON.parse(Buffer.from(pkg.content, "base64").toString()).version !== tag.slice(1)) throw new Error("tag does not match package version");
     await output(plan);

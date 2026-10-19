@@ -53,7 +53,8 @@ Add optional curated release notes at `docs/releases/<version>.md` in the versio
 The matching file becomes the GitHub release body; when absent, generated release notes are retained.
 An empty or unreadable notes file fails the release.
 
-For recovery, rerun the failed workflow or dispatch `Native prebuilds` on `main` with the existing version tag.
+For recovery, rerun the failed workflow or dispatch `Native prebuilds` at the existing version tag, selecting that same tag as both the workflow ref and the `tag` input.
+Release planning requires the resolved tag commit to equal the workflow event source commit before attestation or publication; dispatching from `main` for a different commit fails.
 Manual version-tag pushes enter the same workflow and share a concurrency group with automatic releases.
 Public releases are skipped, complete draft assets are reused, and an already published npm version must have the exact tested archive's integrity before promotion can resume.
 Partial draft uploads are rebuilt and restaged; publication failures leave the release in draft.

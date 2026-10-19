@@ -22,11 +22,24 @@ test("reruns reuse only complete draft assets and refuse ambiguous archives", ()
 test("release planning rejects mismatched commits and skips public releases", () => {
   const sha = "a".repeat(40);
   for (const release of [undefined, { draft: true }]) {
-    assert.deepEqual(releasePlan("v1.2.3", sha, sha, release), { tag: "v1.2.3", sha, active: true });
+    assert.deepEqual(releasePlan("v1.2.3", sha, sha, sha, release), { tag: "v1.2.3", sha, active: true });
   }
-  assert.equal(releasePlan("v1.2.3", sha, undefined, { draft: false }).active, false);
-  assert.throws(() => releasePlan("v1.2.3", sha, "b".repeat(40)), /commit/);
-  assert.throws(() => releasePlan("main", sha), /version tag/);
+  assert.equal(releasePlan("v1.2.3", sha, undefined, sha, { draft: false }).active, false);
+  assert.throws(() => releasePlan("v1.2.3", sha, "b".repeat(40), sha), /commit/);
+  assert.throws(() => releasePlan("main", sha, undefined, sha), /version tag/);
+});
+
+for (const expected of [undefined, "a".repeat(40)]) {
+  for (const eventSha of [undefined, "b".repeat(40)]) {
+    test(`release planning rejects ${eventSha ? "different" : "missing"} event commits ${expected ? "with" : "without"} a caller commit`, () => {
+      assert.throws(() => releasePlan("v1.2.3", "a".repeat(40), expected, eventSha, { draft: true }), /workflow event source commit/);
+    });
+  }
+}
+
+test("tag-triggered and matching-tag recovery planning accept the event commit without a caller commit", () => {
+  const sha = "a".repeat(40);
+  assert.deepEqual(releasePlan("v1.2.3", sha, undefined, sha, { draft: true }), { tag: "v1.2.3", sha, active: true });
 });
 
 test("release notes use the matching version file and generated fallback only when absent", async () => {
