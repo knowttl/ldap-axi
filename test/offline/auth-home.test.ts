@@ -208,7 +208,6 @@ for (const errorCode of ["SERVER_UNREACHABLE", "OPERATION_TIMEOUT"]) test(`the l
   try {
     // Keep the script and CLI real; replace only the directory-opening boundary.
     const source = `
-      import assert from "node:assert/strict";
       import { mock } from "node:test";
       process.argv = [process.execPath, "scripts/live-smoke.mjs", ...process.argv.slice(1)];
       const { run } = await import("./dist/src/cli.js");
@@ -221,7 +220,7 @@ for (const errorCode of ["SERVER_UNREACHABLE", "OPERATION_TIMEOUT"]) test(`the l
         } }),
       } });
       await import("./scripts/live-smoke.mjs");
-      assert.equal(attempts, 4);
+      console.log("directory_open_attempts:", attempts);
     `;
     const result = spawnSync(process.execPath, ["--experimental-test-module-mocks", "--input-type=module", "--eval", source, "--", "--out", evidenceFile, "--url", "ldap://directory.example.test", "--anonymous", "--insecure-plaintext"], {
       env: { ...process.env, ...isolatedConfig(), LDAP_AXI_LIVE: "1" },
@@ -230,6 +229,7 @@ for (const errorCode of ["SERVER_UNREACHABLE", "OPERATION_TIMEOUT"]) test(`the l
     });
     assert.equal(result.error, undefined);
     assert.equal(result.status, 1, result.stderr);
+    assert.equal(result.stdout.trim().split("\n").at(-1), "directory_open_attempts: 4");
     const evidence = JSON.parse(await readFile(evidenceFile, "utf8"));
     assert.equal(evidence.url_scheme, "ldap");
     assert.deepEqual(evidence.steps.map((step: { step: string }) => step.step), ["home", "auth status (offline)", "auth status", "rootDSE read", "user list", "group list"]);
