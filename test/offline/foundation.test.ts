@@ -58,7 +58,7 @@ class RecordedDirectory implements Directory {
   async whoami(): Promise<string | undefined> { return undefined; }
   async close(): Promise<void> {}
 }
-test("registry is frozen and has only read-safe operations", () => { assert.deepEqual(Object.keys(OPERATIONS), ["rootDSE", "searchPaged", "bind", "unbind", "startTLS", "whoami"]); assert.deepEqual([...EXTENDED_OIDS], ["1.3.6.1.4.1.1466.20037", "1.3.6.1.4.1.4203.1.11.3"]); assert.deepEqual([...CONTROL_OIDS], ["1.2.840.113556.1.4.319"]); assert.throws(() => { (OPERATIONS as any).bind = {}; }); });
+test("registry is frozen and has only read-safe operations", () => { assert.deepEqual(Object.keys(OPERATIONS), ["rootDSE", "searchPaged", "bind", "unbind", "startTLS", "whoami"]); assert.deepEqual([...EXTENDED_OIDS], ["1.3.6.1.4.1.1466.20037", "1.3.6.1.4.1.4203.1.11.3"]); assert.deepEqual([...CONTROL_OIDS], ["1.2.840.113556.1.4.319"]); assert.throws(() => { (OPERATIONS as unknown as Record<string, unknown>).bind = {}; }); });
 test("parser rejects unsupported input before any directory can open", () => {
   assert.throws(() => parse(["entry", "search", "--disable"]), (error: unknown) => error instanceof CliError && error.code === "VALIDATION_ERROR");
   assert.throws(() => parse(["entry", "search", "--cursor", "opaque"]), (error: unknown) => error instanceof CliError && /out of scope/.test(error.message));

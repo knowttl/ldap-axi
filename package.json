@@ -43,7 +43,8 @@
     "test:local-directory": "bash scripts/local-directory.sh",
     "smoke:live": "node scripts/live-smoke.mjs",
     "prepare-package-test": "node scripts/prepare-package-test.mjs && npm pack --pack-destination .tmp/package-test",
-    "lint": "node scripts/architecture-check.mjs",
+    "lint": "eslint . && npm run lint:architecture",
+    "lint:architecture": "node scripts/architecture-check.mjs",
     "skill:generate": "npm run build && node scripts/generate-skill.mjs",
     "skill:check": "npm run build && node scripts/generate-skill.mjs --check",
     "verify": "npm run typecheck && npm run lint && npm test && npm run skill:check"
@@ -54,13 +55,17 @@
     "toml-eslint-parser": "1.0.3"
   },
   "devDependencies": {
+    "@eslint/js": "10.0.1",
     "@types/node": "24.10.1",
+    "eslint": "10.13.0",
+    "globals": "17.13.0",
     "release-please": "17.11.2",
     "typescript": "5.9.3",
+    "typescript-eslint": "8.71.2",
     "yaml": "2.9.1"
   },
   "optionalDependencies": {
     "node-addon-api": "8.9.2",
-    "node-gyp": "11.5.0"
+    "node-gyp": "12.4.0"
   }
 }

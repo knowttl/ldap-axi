@@ -9,6 +9,16 @@ import type { Scm } from "release-please/build/src/scm.js";
 import type { PullRequest } from "release-please/build/src/pull-request.js";
 import { TagName } from "release-please/build/src/util/tag-name.js";
 
+type WorkflowStep = {
+  name?: string;
+  uses?: string;
+  with?: Record<string, unknown>;
+  env?: Record<string, string>;
+  if?: string;
+  run?: string;
+};
+type WorkflowJob = { needs?: string | string[]; if?: string; steps: WorkflowStep[] };
+
 async function fixture(pullRequests: PullRequest[] = []) {
   const events: unknown[] = [];
   // Only the remote repository boundary is replaced; versioning and release planning are real.
@@ -28,7 +38,7 @@ async function fixture(pullRequests: PullRequest[] = []) {
       yield { sha: "a".repeat(40), message: "fix: reject invalid filters", files: ["src/cli.ts"] };
       yield { sha: "b".repeat(40), message: "chore: previous release", files: [] };
     },
-    async createRelease(release: any, options: any) {
+    async createRelease(...[release, options]: Parameters<Scm["createRelease"]>) {
       events.push({ tag: release.tag.toString(), sha: release.sha, options });
       return { tagName: release.tag.toString(), sha: release.sha, url: "https://example.com/release" };
     },
@@ -125,22 +135,22 @@ test("native release promotion depends on staged package consumption", async () 
   assert.equal(workflow.on.workflow_call.inputs.sha.required, true);
   assert.equal(workflow.on.workflow_dispatch.inputs.tag.required, true);
   assert.deepEqual(workflow.concurrency, { group: "native-release-${{ inputs.tag || github.ref_name }}", "cancel-in-progress": false });
-  const { jobs } = workflow;
+  const jobs = workflow.jobs as Record<string, WorkflowJob>;
   assert.deepEqual(jobs["release-stage"].needs, ["release-plan", "linux-current-load", "windows-build-test"]);
   assert.deepEqual(jobs["release-consume"].needs, ["release-plan", "release-stage"]);
   assert.deepEqual(jobs["release-publish"].needs, ["release-plan", "release-consume"]);
-  for (const [name, job] of Object.entries(jobs) as [string, any][]) {
+  for (const [name, job] of Object.entries(jobs)) {
     if (name === "release-plan") continue;
-    const checkout = job.steps.find((step: any) => step.uses === "actions/checkout@v4");
-    assert.equal(checkout.with.ref, "${{ needs.release-plan.outputs.sha }}", name);
+    const checkout = job.steps.find(step => step.uses === "actions/checkout@v4");
+    assert.equal(checkout?.with?.ref, "${{ needs.release-plan.outputs.sha }}", name);
     if (name === "linux-build-test" || name === "windows-build-test") assert.equal(job.if, "needs.release-plan.outputs.active == 'true'");
   }
   const stage = jobs["release-stage"].steps;
-  assert.deepEqual(stage.find((step: any) => step.name === "Pin release digests in package manifest").env, {
+  assert.deepEqual(stage.find(step => step.name === "Pin release digests in package manifest")?.env, {
     RELEASE_TAG: "${{ needs.release-plan.outputs.tag }}",
   });
-  assert.equal(stage.find((step: any) => step.name === "Pack release commit").if, "steps.resume.outputs.reused != 'true'");
+  assert.equal(stage.find(step => step.name === "Pack release commit")?.if, "steps.resume.outputs.reused != 'true'");
   const publisher = jobs["release-publish"].steps;
-  assert.equal(publisher.find((step: any) => step.name === "Publish exact tested npm package with provenance").run, "node scripts/native-release.mjs publish");
-  assert.equal(publisher.at(-1).name, "Promote tested release");
+  assert.equal(publisher.find(step => step.name === "Publish exact tested npm package with provenance")?.run, "node scripts/native-release.mjs publish");
+  assert.equal(publisher.at(-1)?.name, "Promote tested release");
 });

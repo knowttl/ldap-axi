@@ -20,6 +20,8 @@ export async function releaseNotes(tag, generated, read = readFile) {
     return notes;
   } catch (error) {
     if (error.code !== "ENOENT") throw error;
+    // Missing curated notes are expected; missing generated notes are an independent failure.
+    // eslint-disable-next-line preserve-caught-error
     if (!generated?.trim()) throw new Error("generated release notes are missing");
     return generated;
   }

@@ -57,13 +57,13 @@ for (const [command, localFlags] of [
   test(`${command} help lists every accepted flag exactly once`, async () => {
     const result = await run([...command.split(" "), "--help"]);
     const invalid = await run([...command.split(" "), "--bogus"]);
-    const advertised = [...result.stdout.matchAll(/^  --([\w-]+)  \S.+$/gm)].map(match => match[1]);
+    const advertised = [...result.stdout.matchAll(/^ {2}--([\w-]+) {2}\S.+$/gm)].map(match => match[1]);
     const accepted = [...invalid.stdout.matchAll(/--([\w-]+)/g)].map(match => match[1]).filter(name => name !== "bogus");
     assert.deepEqual(advertised.toSorted(), [...new Set(accepted)].toSorted());
     assert.equal(advertised.length, new Set(advertised).size);
     for (const flag of localFlags) assert.ok(advertised.includes(flag));
     assert.match(result.stdout, /default: auto/);
-    assert.match(result.stdout, /Examples:\n  ldap-axi /);
+    assert.match(result.stdout, /Examples:\n {2}ldap-axi /);
   });
 }
 
@@ -182,14 +182,14 @@ test("paging defaults by detected flavor unless configured", () => {
 test("command help describes flags, flavor fields, and flavor defaults without duplicates", async () => {
   const result = await run(["user", "list", "--help"]);
   assert.equal(result.exitCode, 0);
-  assert.match(result.stdout, /--page-size  <1\.\.1000> LDAP page size/);
-  assert.match(result.stdout, /--tls-max-version  <1\.2> cap verified TLS to TLS 1\.2/);
-  assert.match(result.stdout, /--all  read all pages up to --max-rows or --limit/);
+  assert.match(result.stdout, /--page-size {2}<1\.\.1000> LDAP page size/);
+  assert.match(result.stdout, /--tls-max-version {2}<1\.2> cap verified TLS to TLS 1\.2/);
+  assert.match(result.stdout, /--all {2}read all pages up to --max-rows or --limit/);
   assert.match(result.stdout, /Active Directory fields:.*object_sid/);
   assert.match(result.stdout, /LDAPv3 fields:.*entry_uuid/);
   assert.match(result.stdout, /Active Directory defaults: sam, name, enabled, last_logon/);
   assert.match(result.stdout, /LDAPv3 defaults: uid, name, mail/);
-  assert.equal(result.stdout.match(/^  --all  /gm)?.length, 1);
+  assert.equal(result.stdout.match(/^ {2}--all {2}/gm)?.length, 1);
 });
 test("a blocked plaintext request does not claim traffic was sent", async () => {
   const result = await run(["entry", "search", "--url", "ldap://127.0.0.1:1", "--base", "dc=example,dc=test", "--anonymous"]);

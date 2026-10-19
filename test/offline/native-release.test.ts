@@ -128,8 +128,11 @@ for (const { script, workflowStep, environment } of [
         stdio: "pipe" as const,
       };
       if (workflowStep) {
-        const workflow = parse(await readFile(".github/workflows/native-prebuilds.yml", "utf8"));
-        const step = workflow.jobs["release-stage"].steps.find((step: any) => step.name === "Pin release digests in package manifest");
+        const workflow = parse(await readFile(".github/workflows/native-prebuilds.yml", "utf8")) as {
+          jobs: Record<string, { steps: { name?: string; run?: string }[] }>;
+        };
+        const step = workflow.jobs["release-stage"].steps.find(step => step.name === "Pin release digests in package manifest");
+        assert.ok(step?.run);
         await mkdir(join(fixture, "scripts"));
         await copyFile(script, join(fixture, "scripts/assemble-native-release.mjs"));
         if (script === "test/support/assemble-native-release-v0.2.0.mjs") {
