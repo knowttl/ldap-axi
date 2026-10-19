@@ -5,9 +5,11 @@ import { homedir } from "node:os";
 import { delimiter, dirname, isAbsolute, join, resolve } from "node:path";
 import { CliError } from "./core.js";
 import { createSkillMarkdown } from "./skill.js";
+import { parseForESLint, getStaticTOMLValue, traverseNodes, type AST } from "toml-eslint-parser";
 
 const SKILL_MARKER = "<!-- Managed by ldap-axi setup. -->\n";
 const HOOK_MARKER = "ldap-axi offline home";
+const PLUGIN_MARKER = "// Managed by ldap-axi setup.\n";
 type ObjectValue = Record<string, unknown>;
 type Change = { path: string; before: string | undefined; after: string; kind: "skill" | "hook" };
 
@@ -16,7 +18,7 @@ Usage: ldap-axi setup --app <claude|codex|opencode> [--skill] [--hook] [--check]
 Flags:
   --app  required agent target; no automatic host selection
   --skill  install the shipped static skill (default: false)
-  --hook  install Claude SessionStart offline home (default: false; Claude only)
+  --hook  install offline home via SessionStart or an OpenCode plugin (default: false)
   --check  report missing or stale integrations without writing (default: false)
   --help  show this reference
 Select at least one of --skill or --hook. Repeating setup repairs owned files and preserves unrelated settings.
@@ -64,6 +66,87 @@ async function hookCommand(executable: string): Promise<ObjectValue> {
   return { type: "command", command: node, args: [cli, "--session-start"], statusMessage: HOOK_MARKER, timeout: 5 };
 }
 
+/** Edit TOML by parsed ranges so comments, quoting and unrelated settings survive. */
+function enableCodexHooks(source: string): string {
+  let ast: AST.TOMLProgram;
+  try { ast = parseForESLint(source, { tomlVersion: "1.0" }).ast; }
+  catch { throw new CliError("CONFIG_INVALID", "Codex config.toml must be valid TOML; setup left it unchanged"); }
+  const config = getStaticTOMLValue(ast);
+  const features = config.features === undefined ? {} : object(config.features, "Codex features");
+  if (features.hooks !== undefined && typeof features.hooks !== "boolean") throw new CliError("CONFIG_INVALID", "Codex features.hooks must be a boolean");
+  if (features.hooks === true) return source;
+  let hook: AST.TOMLKeyValue | undefined;
+  let table: AST.TOMLTable | AST.TOMLInlineTable | undefined;
+  function path(node: AST.TOMLKeyValue): (string | number)[] {
+    const parent = node.parent;
+    const prefix = parent.type === "TOMLTable" ? parent.resolvedKey : parent.type === "TOMLInlineTable" ? parent.parent.type === "TOMLKeyValue" ? path(parent.parent) : [0] : [];
+    return [...prefix, ...getStaticTOMLValue(node.key)];
+  }
+  traverseNodes(ast, {
+    enterNode(node) {
+      if (node.type === "TOMLTable" && JSON.stringify(node.resolvedKey) === '["features"]') table = node;
+      if (node.type !== "TOMLKeyValue") return;
+      const key = JSON.stringify(path(node));
+      if (key === '["features","hooks"]') hook = node;
+      if (key === '["features"]' && node.value.type === "TOMLInlineTable") table = node.value;
+    },
+    leaveNode() {},
+  });
+  if (hook) return source.slice(0, hook.value.range[0]) + "true" + source.slice(hook.value.range[1]);
+  if (table?.type === "TOMLInlineTable") {
+    const offset = table.range[1] - 1;
+    return source.slice(0, offset) + `${table.body.length ? ", " : ""}hooks = true` + source.slice(offset);
+  }
+  if (table) {
+    const offset = source.indexOf("\n", table.key.range[1]);
+    if (offset < 0) return source + "\nhooks = true\n";
+    return source.slice(0, offset + 1) + "hooks = true\n" + source.slice(offset + 1);
+  }
+  // A root dotted key also works when other features use dotted notation.
+  return "features.hooks = true\n" + source;
+}
+
+function codexCommand(hook: ObjectValue): ObjectValue {
+  const argv = [hook.command as string, ...hook.args as string[]];
+  const posix = argv.map(value => `'${value.replaceAll("'", "'\\''")}'`).join(" ");
+  const powershell = "& " + argv.map(value => `'${value.replaceAll("'", "''")}'`).join(" ");
+  return {
+    type: "command", command: posix,
+    commandWindows: `powershell.exe -NoProfile -NonInteractive -EncodedCommand ${Buffer.from(powershell, "utf16le").toString("base64")}`,
+    statusMessage: HOOK_MARKER, timeout: 5, additionalContextLimit: 8192,
+  };
+}
+
+function opencodePlugin(hook: ObjectValue): string {
+  const argv = [hook.command, ...hook.args as string[]];
+  return PLUGIN_MARKER + `export const LdapAxi = async ({ directory }) => ({
+  "experimental.chat.system.transform": async (_input, output) => {
+    let child;
+    try {
+      child = Bun.spawn(${JSON.stringify(argv)}, { cwd: directory, stdin: "ignore", stdout: "pipe", stderr: "ignore", timeout: 5000, killSignal: "SIGKILL" });
+      const reader = child.stdout.getReader();
+      const chunks = [];
+      let size = 0;
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          size += value.byteLength;
+          if (size > 8192) return;
+          chunks.push(value);
+        }
+        if (await child.exited !== 0) return;
+        const text = await new Blob(chunks).text();
+        if (text.trim() && !output.system.includes(text)) output.system.push(text);
+      } finally { child.kill("SIGKILL"); await reader.cancel(); }
+    } catch {
+      // Ambient guidance must never block a session when the executable is missing.
+    } finally { child?.kill("SIGKILL"); }
+  },
+});
+`;
+}
+
 function repairHooks(settings: ObjectValue, desired: ObjectValue): ObjectValue {
   const hooks = settings.hooks === undefined ? {} : object(settings.hooks, "hooks");
   const starts = hooks.SessionStart ?? [];
@@ -96,7 +179,6 @@ export async function setup(flags: Readonly<Record<string, string | boolean>>, e
   const app = flags.app;
   if (app !== "claude" && app !== "codex" && app !== "opencode") throw new CliError("VALIDATION_ERROR", "--app must be claude, codex, or opencode", ["Run `ldap-axi setup --help`"]);
   if (!flags.skill && !flags.hook) throw new CliError("VALIDATION_ERROR", "select --skill, --hook, or both", ["Run `ldap-axi setup --help`"]);
-  if (flags.hook && app !== "claude") throw new CliError("VALIDATION_ERROR", "--hook currently supports --app claude only", ["Use --skill for Codex or OpenCode"]);
   const home = homedir();
   const root = app === "claude" ? process.env.CLAUDE_CONFIG_DIR || join(home, ".claude")
     : app === "codex" ? process.env.CODEX_HOME || join(home, ".codex")
@@ -111,15 +193,28 @@ export async function setup(flags: Readonly<Record<string, string | boolean>>, e
     changes.push({ path, before, after, kind: "skill" });
   }
   if (flags.hook) {
-    const path = join(root, "settings.json");
-    const before = await read(path);
-    let settings: ObjectValue;
-    try { settings = object(JSON.parse(before ?? "{}"), "Claude settings"); }
-    catch (error) { if (error instanceof CliError) throw error; throw new CliError("CONFIG_INVALID", "Claude settings must be valid JSON; setup left them unchanged"); }
-    const desired = repairHooks(settings, await hookCommand(executable));
-    // Preserve bytes and mtime on a semantic no-op, including user formatting.
-    const after = JSON.stringify(settings) === JSON.stringify(desired) ? before! : `${JSON.stringify(desired, null, 2)}\n`;
-    changes.push({ path, before, after, kind: "hook" });
+    const command = await hookCommand(executable);
+    if (app === "opencode") {
+      const path = join(root, "plugins", "ldap-axi.js");
+      const before = await read(path);
+      if (before !== undefined && !before.startsWith(PLUGIN_MARKER)) throw new CliError("CONFIG_INVALID", "existing ldap-axi plugin is not managed by setup", ["Move the custom plugin before installing the shipped plugin"]);
+      changes.push({ path, before, after: opencodePlugin(command), kind: "hook" });
+    } else {
+      if (app === "codex") {
+        const path = join(root, "config.toml");
+        const before = await read(path);
+        changes.push({ path, before, after: enableCodexHooks(before ?? ""), kind: "hook" });
+      }
+      const path = join(root, app === "claude" ? "settings.json" : "hooks.json");
+      const before = await read(path);
+      let settings: ObjectValue;
+      try { settings = object(JSON.parse(before ?? "{}"), `${app} hooks`); }
+      catch (error) { if (error instanceof CliError) throw error; throw new CliError("CONFIG_INVALID", `${app} hooks must be valid JSON; setup left them unchanged`); }
+      const desired = repairHooks(settings, app === "codex" ? codexCommand(command) : command);
+      // Preserve bytes and mtime on a semantic no-op, including user formatting.
+      const after = JSON.stringify(settings) === JSON.stringify(desired) ? before! : `${JSON.stringify(desired, null, 2)}\n`;
+      changes.push({ path, before, after, kind: "hook" });
+    }
   }
   const stale = changes.filter(change => change.before !== change.after);
   if (!flags.check) for (const change of stale) await apply(change);
