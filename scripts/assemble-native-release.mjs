@@ -16,8 +16,11 @@ const releaseDirectory = resolve(process.argv[2] ?? "release");
 const manifestPath = resolve("prebuilds/manifest.json");
 const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
 const packageManifest = JSON.parse(await readFile(resolve("package.json"), "utf8"));
-if (process.env.GITHUB_REF_NAME && process.env.GITHUB_REF_NAME !== `v${packageManifest.version}`) {
-  throw new Error(`tag ${process.env.GITHUB_REF_NAME} does not match package version ${packageManifest.version}`);
+const tag = process.env.RELEASE_TAG ?? (process.env.GITHUB_EVENT_NAME === "push" && process.env.GITHUB_REF_TYPE === "tag"
+  ? process.env.GITHUB_REF_NAME : undefined);
+if (!tag) throw new Error("a release tag is required");
+if (tag !== `v${packageManifest.version}`) {
+  throw new Error(`tag ${tag} does not match package version ${packageManifest.version}`);
 }
 const targets = ["linux-glibc-x64", "win32-x64"];
 const artifacts = {};

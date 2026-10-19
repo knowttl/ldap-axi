@@ -51,7 +51,8 @@ Add optional curated release notes at `docs/releases/<version>.md` in the versio
 The matching file becomes the GitHub release body; when absent, generated release notes are retained.
 An empty or unreadable notes file fails the release.
 
-For recovery, rerun the failed workflow or dispatch `Native prebuilds` at the existing version tag, selecting that same tag as both the workflow ref and the `tag` input.
+For recovery without a workflow fix, rerun the failed workflow.
+To use a merged workflow fix, dispatch `Native prebuilds` from `main` with the existing version tag as the required `tag` input (for example, `v0.2.0`).
 See the [release contract](docs/support-matrix.md#release-and-provenance) for commit checks, asset reuse, and publication recovery requirements.
 
 ## Compatibility

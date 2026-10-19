@@ -147,7 +147,8 @@ Three workflows run in GitHub Actions: native prebuilds, manually dispatched loc
 None receives directory credentials or runs a live-directory test.
 Release Please creates a version tag and draft after a version pull request merges and explicitly calls the native workflow with the exact tag and commit, because tags created with `GITHUB_TOKEN` do not trigger another workflow.
 Native automation runs only for releases, through that call, a manual dispatch with an existing tag, or a version-tag push.
-Release planning requires the resolved tag commit to equal the workflow event source commit and any caller-supplied commit before attestation or publication; dispatching from `main` for a different commit fails.
+Release planning requires the resolved tag commit to equal any caller-supplied commit and, except for manual recovery dispatches, the workflow event source commit before attestation or publication.
+Manual recovery may select `main` to use merged workflow fixes while building the existing tag's source, without moving the tag or cutting a new version.
 The tag must also match the package version at that commit.
 All entry points share one concurrency group per tag; after those checks, a public release is a no-op.
 See [Release changes](../CONTRIBUTING.md#release-changes) for commit conventions, curated notes, and recovery.

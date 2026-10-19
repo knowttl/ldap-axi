@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import test from "node:test";
 import { pathToFileURL } from "node:url";
+import { parse } from "yaml";
 
 const helperPath = resolve("scripts/native-release.mjs");
 const { releasePlan, releaseNotes, windowsAsset, publishPackage, stagedArchive } = await import(pathToFileURL(helperPath).href);
@@ -40,6 +41,12 @@ for (const expected of [undefined, "a".repeat(40)]) {
 test("tag-triggered and matching-tag recovery planning accept the event commit without a caller commit", () => {
   const sha = "a".repeat(40);
   assert.deepEqual(releasePlan("v1.2.3", sha, undefined, sha, { draft: true }), { tag: "v1.2.3", sha, active: true });
+});
+
+test("manual recovery accepts a newer workflow commit while preserving the selected tag commit", () => {
+  const sha = "a".repeat(40);
+  assert.deepEqual(releasePlan("v1.2.3", sha, undefined, "b".repeat(40), { draft: true }, "workflow_dispatch"), { tag: "v1.2.3", sha, active: true });
+  assert.throws(() => releasePlan("v1.2.3", sha, "b".repeat(40), "b".repeat(40), { draft: true }, "workflow_dispatch"), /commit/);
 });
 
 test("release notes use the matching version file and generated fallback only when absent", async () => {
@@ -82,49 +89,74 @@ function digest(bytes: Buffer): string {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
-test("release assembly keeps the bundled prebuild checksum and manifest aligned", async () => {
-  const fixture = resolve(`.tmp/native-release-${randomUUID()}`);
-  const release = join(fixture, "release");
-  const prebuilds = join(fixture, "prebuilds");
-  const linuxBytes = Buffer.from("replacement linux native artifact");
-  const windowsBytes = Buffer.from("replacement windows native artifact");
+for (const { script, workflowStep, environment } of [
+  { script: "scripts/assemble-native-release.mjs", workflowStep: true,
+    environment: { RELEASE_TAG: "v1.2.3", GITHUB_REF_NAME: "main", GITHUB_EVENT_NAME: "workflow_dispatch", GITHUB_REF_TYPE: "branch" } },
+  { script: "test/support/assemble-native-release-v0.2.0.mjs", workflowStep: true,
+    environment: { RELEASE_TAG: "v1.2.3", GITHUB_REF_NAME: "main", GITHUB_EVENT_NAME: "workflow_dispatch", GITHUB_REF_TYPE: "branch" } },
+  { script: "scripts/assemble-native-release.mjs", workflowStep: false,
+    environment: { RELEASE_TAG: "v1.2.3", GITHUB_REF_NAME: "main", GITHUB_EVENT_NAME: "workflow_dispatch", GITHUB_REF_TYPE: "branch" } },
+  { script: "scripts/assemble-native-release.mjs", workflowStep: false,
+    environment: { RELEASE_TAG: "", GITHUB_REF_NAME: "v1.2.3", GITHUB_EVENT_NAME: "push", GITHUB_REF_TYPE: "tag" } },
+]) {
+  test(`release assembly keeps checksums aligned using ${workflowStep ? `recovery on main with ${script}` : environment.RELEASE_TAG ? "the explicit release tag on main" : "the tag-push ref"}`, {
+    skip: workflowStep && process.platform !== "linux" ? "Ubuntu workflow shell regression requires Linux" : false,
+  }, async () => {
+    const fixture = resolve(`.tmp/native-release-${randomUUID()}`);
+    const release = join(fixture, "release");
+    const prebuilds = join(fixture, "prebuilds");
+    const linuxBytes = Buffer.from("replacement linux native artifact");
+    const windowsBytes = Buffer.from("replacement windows native artifact");
 
-  try {
-    await mkdir(join(prebuilds, "linux-glibc-x64"), { recursive: true });
-    await mkdir(release, { recursive: true });
-    await writeFile(join(fixture, "package.json"), `${JSON.stringify({ version: "1.2.3" })}\n`);
-    await writeFile(join(prebuilds, "manifest.json"), `${JSON.stringify({ version: 1, release: { repository: "example/ldap-axi" }, artifacts: {} })}\n`);
-    await writeFile(join(prebuilds, "linux-glibc-x64", "kerberos.node"), "stale binary");
-    await writeFile(join(prebuilds, "linux-glibc-x64", "kerberos.node.sha256"), `${"0".repeat(64)}  kerberos-linux-glibc-x64.node\n`);
+    try {
+      await mkdir(join(prebuilds, "linux-glibc-x64"), { recursive: true });
+      await mkdir(release, { recursive: true });
+      await writeFile(join(fixture, "package.json"), `${JSON.stringify({ version: "1.2.3" })}\n`);
+      await writeFile(join(prebuilds, "manifest.json"), `${JSON.stringify({ version: 1, release: { repository: "example/ldap-axi" }, artifacts: {} })}\n`);
+      await writeFile(join(prebuilds, "linux-glibc-x64", "kerberos.node"), "stale binary");
+      await writeFile(join(prebuilds, "linux-glibc-x64", "kerberos.node.sha256"), `${"0".repeat(64)}  kerberos-linux-glibc-x64.node\n`);
 
-    for (const [target, bytes] of [["linux-glibc-x64", linuxBytes], ["win32-x64", windowsBytes]] as const) {
-      const asset = `kerberos-${target}.node`;
-      await writeFile(join(release, asset), bytes);
-      await writeFile(join(release, `${asset}.sha256`), `${digest(bytes)}  ${asset}\n`);
+      for (const [target, bytes] of [["linux-glibc-x64", linuxBytes], ["win32-x64", windowsBytes]] as const) {
+        const asset = `kerberos-${target}.node`;
+        await writeFile(join(release, asset), bytes);
+        await writeFile(join(release, `${asset}.sha256`), `${digest(bytes)}  ${asset}\n`);
+      }
+
+      const options = {
+        cwd: fixture,
+        env: { ...process.env, ...environment, RELEASE_TAG: environment.RELEASE_TAG || undefined },
+        stdio: "pipe" as const,
+      };
+      if (workflowStep) {
+        const workflow = parse(await readFile(".github/workflows/native-prebuilds.yml", "utf8"));
+        const step = workflow.jobs["release-stage"].steps.find((step: any) => step.name === "Pin release digests in package manifest");
+        await mkdir(join(fixture, "scripts"));
+        await copyFile(script, join(fixture, "scripts/assemble-native-release.mjs"));
+        if (script === "test/support/assemble-native-release-v0.2.0.mjs") {
+          assert.throws(() => execFileSync(process.execPath, ["scripts/assemble-native-release.mjs", "release"], options), /tag main does not match package version 1.2.3/);
+        }
+        execFileSync("bash", ["--noprofile", "--norc", "-e", "-o", "pipefail", "-c", step.run], options);
+      } else {
+        execFileSync(process.execPath, [resolve(script), release], options);
+      }
+
+      const bundled = await readFile(join(prebuilds, "linux-glibc-x64", "kerberos.node"));
+      const checksum = (await readFile(join(prebuilds, "linux-glibc-x64", "kerberos.node.sha256"), "utf8")).trim().split(/\s+/, 1)[0];
+      const manifest = JSON.parse(await readFile(join(prebuilds, "manifest.json"), "utf8")) as {
+        artifacts: Record<string, { sha256: string }>;
+      };
+      const bundledDigest = digest(bundled);
+
+      assert.deepEqual(bundled, linuxBytes);
+      assert.equal(checksum, bundledDigest);
+      assert.equal(manifest.artifacts["linux-glibc-x64"].sha256, bundledDigest);
+    } finally {
+      await rm(fixture, { recursive: true, force: true });
     }
+  });
+}
 
-    execFileSync(process.execPath, [resolve("scripts/assemble-native-release.mjs"), release], {
-      cwd: fixture,
-      env: { ...process.env, GITHUB_REF_NAME: "v1.2.3" },
-      stdio: "pipe",
-    });
-
-    const bundled = await readFile(join(prebuilds, "linux-glibc-x64", "kerberos.node"));
-    const checksum = (await readFile(join(prebuilds, "linux-glibc-x64", "kerberos.node.sha256"), "utf8")).trim().split(/\s+/, 1)[0];
-    const manifest = JSON.parse(await readFile(join(prebuilds, "manifest.json"), "utf8")) as {
-      artifacts: Record<string, { sha256: string }>;
-    };
-    const bundledDigest = digest(bundled);
-
-    assert.deepEqual(bundled, linuxBytes);
-    assert.equal(checksum, bundledDigest);
-    assert.equal(manifest.artifacts["linux-glibc-x64"].sha256, bundledDigest);
-  } finally {
-    await rm(fixture, { recursive: true, force: true });
-  }
-});
-
-for (const invalid of ["version", "checksum"] as const) {
+for (const invalid of ["version", "checksum", "branch", "dispatch", "missing tag", "empty tag"] as const) {
   test(`release assembly refuses a mismatched ${invalid}`, async () => {
     const fixture = resolve(`.tmp/native-release-${randomUUID()}`);
     const release = join(fixture, "release");
@@ -137,9 +169,15 @@ for (const invalid of ["version", "checksum"] as const) {
       await writeFile(join(release, "kerberos-linux-glibc-x64.node.sha256"), "0".repeat(64));
       assert.throws(() => execFileSync(process.execPath, [resolve("scripts/assemble-native-release.mjs"), release], {
         cwd: fixture,
-        env: { ...process.env, GITHUB_REF_NAME: invalid === "version" ? "v1.2.4" : "v1.2.3" },
+        env: {
+          ...process.env,
+          RELEASE_TAG: invalid === "version" ? "v1.2.4" : invalid === "checksum" ? "v1.2.3" : invalid === "empty tag" ? "" : undefined,
+          GITHUB_REF_NAME: "v1.2.3",
+          GITHUB_REF_TYPE: invalid === "branch" ? "branch" : "tag",
+          GITHUB_EVENT_NAME: invalid === "dispatch" ? "workflow_dispatch" : invalid === "missing tag" ? undefined : "push",
+        },
         stdio: "pipe",
-      }), invalid === "version" ? /does not match package version/ : /does not match its build-job checksum/);
+      }), invalid === "version" ? /does not match package version/ : invalid === "checksum" ? /does not match its build-job checksum/ : /a release tag is required/);
       assert.deepEqual(JSON.parse(await readFile(join(fixture, "prebuilds/manifest.json"), "utf8")).artifacts, {});
     } finally {
       await rm(fixture, { recursive: true, force: true });

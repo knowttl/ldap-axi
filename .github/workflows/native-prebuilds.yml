@@ -157,9 +157,9 @@ jobs:
           RELEASE_TAG: ${{ needs.release-plan.outputs.tag }}
           GH_TOKEN: ${{ github.token }}
       - name: Pin release digests in package manifest
-        run: node scripts/assemble-native-release.mjs release
+        run: GITHUB_REF_NAME="$RELEASE_TAG" node scripts/assemble-native-release.mjs release
         env:
-          GITHUB_REF_NAME: ${{ needs.release-plan.outputs.tag }}
+          RELEASE_TAG: ${{ needs.release-plan.outputs.tag }}
       - name: Pack release commit
         if: steps.resume.outputs.reused != 'true'
         run: mkdir -p package && npm pack --pack-destination package
