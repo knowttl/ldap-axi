@@ -10,7 +10,7 @@ npm ci
 npm run verify
 ```
 
-`npm run verify` runs typechecking, ESLint, architecture lint, the build, offline tests including packed-package consumer checks, and generated-skill drift verification.
+`npm run verify` runs typechecking, ESLint, architecture lint, the build, offline tests including packed-package consumer checks, and generated-guidance drift verification.
 `npm run lint` checks maintained JavaScript and TypeScript with ESLint and then runs the architecture checks.
 Vendored sources, native prebuilds, and generated build and test output are excluded from ESLint.
 Use `npm run lint:architecture` to run only the architecture checks.
@@ -19,8 +19,8 @@ Run them before submitting a pull request.
 Do not add GitHub test CI or CI badges as a substitute for local verification.
 Existing native release automation is described in the [support matrix](docs/support-matrix.md#release-and-provenance).
 
-Regenerate both committed skill copies with `npm run skill:generate` after changing their source guidance.
-Run `npm run skill:check` to check for missing or stale output without rewriting it.
+Regenerate both committed skill copies, the README command table, and `docs/commands.md` with `npm run skill:generate` after changing their source guidance or CLI help.
+Run `npm run skill:check` to check all generated guidance for missing or stale output without rewriting it.
 See the [skill design](docs/design/v1.md#172-session-hook-and-skill) for the generation contract.
 
 The optional `npm run test:local-directory` suite requires Linux and Docker and provisions disposable Samba AD and OpenLDAP/MIT KDC directories.

@@ -54,13 +54,13 @@ Verified LDAPS or StartTLS binds with TLS channel binding and no SASL security l
 `--tls-no-verify` is still refused for a TLS GSSAPI bind.
 Use `--tls-max-version 1.2` or the matching config setting only for verified LDAPS/StartTLS endpoints that require a TLS 1.2 cap.
 `--gssapi-protection` is accepted only when it names the layer the URL scheme already requires.
-The optional in-repository `kerberos@7.0.0` provider is loaded only from the sealed adapter.
-Its verified patched prebuild or source fallback exposes actual confidentiality and integrity results, channel-binding application data, and protected post-bind LDAP transport.
+Ambient authentication requires the optional native provider installed from a verified prebuild or supported source build.
 Every Linux native path, including a verified prebuild, requires compatible system GSSAPI/Kerberos runtime libraries.
-On Linux, libgssapi_krb5.so.2 must be discoverable by the dynamic loader; Nix and WSL users may need an environment wrapper or LD_LIBRARY_PATH, and unavailable libraries are reported as provider unavailable rather than treated as zero-config support.
+On Linux, libgssapi_krb5.so.2 must be discoverable by the dynamic loader.
+Never prepend a whole system library directory to LD_LIBRARY_PATH; use the support matrix's Kerberos-only shim when needed.
 Linux source fallback additionally needs Python, node-gyp, a C++ compiler, and Kerberos/GSS development headers; Windows source fallback needs node-gyp, MSVC, and the Windows SDK.
 Provider or runtime unavailability is reported as `GSSAPI_UNAVAILABLE`; explicit `--auth simple` remains usable and does not load the provider.
-Linux musl, Linux arm64, Windows arm64, and macOS are excluded.
+Native GSSAPI is unavailable on Linux musl, Linux arm64, Windows arm64, and macOS; explicit simple authentication remains available.
 See the [support matrix](https://github.com/knowttl/ldap-axi/blob/main/docs/support-matrix.md) for installation requirements and verified platform status.
 
 Because `auto` may use the logged-in identity, operators who require the configured simple-bind identity must select `--auth simple` before running a command.
