@@ -1,94 +1,62 @@
 # ldap-axi
 
-An agent-facing CLI for reading LDAP directories from the shell, built to the
-[AXI](https://github.com/kunchenguid/axi) standard for CLI tools that autonomous agents drive through shell execution.
+Read Active Directory and LDAPv3 directories from the shell with structured output for agents and the humans running them.
 
-Active Directory and generic LDAPv3 are both first-class targets, and the tool runs on Linux and Windows.
-
-## Install
-
-Install version 0.1.5 with Node 24.11.0 or newer:
+[![npm](https://img.shields.io/npm/v/%40knowttl%2Fldap-axi)](https://www.npmjs.com/package/@knowttl/ldap-axi)
+[![Node](https://img.shields.io/node/v/%40knowttl%2Fldap-axi)](package.json)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![AXI](https://img.shields.io/badge/AXI-TOON-blue)](https://github.com/kunchenguid/axi)
+[![Release provenance](https://img.shields.io/badge/release-attested-blue)](docs/support-matrix.md#release-and-provenance)
 
 ```sh
-npm install --global @knowttl/ldap-axi@0.1.5
+ldap-axi user list --profile work --fields name,dn --limit 1
+```
+
+Actual [TOON](https://toonformat.dev) output from the built CLI with a synthetic directory fixture:
+
+```text
+count: 1 of 1 total
+users[1]{name,dn}:
+  Example,"CN=Example,DC=example,DC=test"
+tls_verified: true
+```
+
+[Quickstart](#quickstart) • [Use with your agent](#use-with-your-agent) • [Features](#features) • [Safety](#safety) • [Configuration](#configuration) • [Commands](#commands)
+
+## Why this exists
+
+Raw LDAP reads require filters, paging, binary decoding, and directory-specific membership rules before an agent can answer a simple account question.
+ldap-axi provides typed reads and bounded TOON output through a shell executable, following [AXI](https://github.com/kunchenguid/axi), with no MCP server to run.
+It supports both AD and generic LDAPv3 while making flavor-specific behavior explicit.
+
+## Features
+
+- **Typed reads:** users, groups, computers, arbitrary entries, and rootDSE server capabilities.
+- **Account decoding:** AD SIDs, GUIDs, FILETIME values, account state, and group types.
+- **Membership:** direct and nested reads with the method and transitivity reported in output.
+- **Bounded paging:** one page by default, explicit row budgets for longer reads, and partial-result metadata.
+- **Authentication:** ambient Kerberos or Windows SSPI, explicit simple bind, and explicit anonymous access.
+- **Agent integration:** offline session context and an installable skill for Claude Code, Codex, and OpenCode.
+
+## Quickstart
+
+Requires **Node 24.11.0 or newer**.
+Ambient authentication requires Linux glibc x64 (glibc >=2.28, GLIBCXX >=3.4.25 and Kerberos runtime libraries) or Windows x64.
+Other platforms can use explicit simple authentication; native GSSAPI is unavailable there.
+See the [support matrix](docs/support-matrix.md#platforms) for exact platform and validation limits.
+
+```sh
+npm install --global @knowttl/ldap-axi
 ldap-axi auth status --offline
+ldap-axi config path
 ```
 
-See the [support matrix](docs/support-matrix.md#installing-from-npm) for native installation requirements and older package limitations.
-The executable is `ldap-axi`.
-Run `ldap-axi` with no arguments for the offline home view; see [skill installation hints](docs/design/v1.md#141-the-home-view) for its optional agent-host guidance.
-For ambient context, explicitly install the integration for your agent:
+The offline report makes no connection and no bind.
+Check `native_provider_installation` and `native_provider_detail`: npm success alone does not prove the optional native provider installed.
+An unavailable provider leaves simple authentication usable; follow the [Linux Kerberos](docs/kerberos.md) or [Windows](docs/windows.md) runbook for diagnosis.
+Offline status does not load the provider or validate tickets.
 
-```sh
-ldap-axi setup --app claude --hook
-ldap-axi setup --app codex --hook
-ldap-axi setup --app opencode --hook
-ldap-axi setup --app claude --hook --check
-```
-
-The integrations provide the compact offline home without connecting or binding.
-Setup preserves unrelated settings and repairs its own integration after executable relocation; rerun the install command after moving or reinstalling the CLI.
-Claude Code must support exec-form command hooks (`command` plus `args`).
-Codex setup installs a native SessionStart hook in `hooks.json` and enables `features.hooks` in `config.toml`.
-Review and trust the hook in Codex before use; setup does not bypass host trust or administrator policy.
-OpenCode setup installs a managed `plugins/ldap-axi.js` plugin that adds system context, with a five-second execution timeout and an 8 KiB output limit.
-It requires OpenCode's `experimental.chat.system.transform` plugin hook and Bun subprocess support.
-
-For on-demand guidance, explicitly install the static skill for Claude Code, Codex, or OpenCode:
-
-```sh
-ldap-axi setup --app claude --skill
-ldap-axi setup --app codex --skill
-ldap-axi setup --app opencode --skill
-```
-
-Choose the hook or skill; either works independently, and `--hook --skill` installs both for the selected agent.
-`--check` reports missing or stale selected integrations with exit 1 and never writes; rerunning setup installs or repairs them.
-See the [setup contract](docs/design/v1.md#172-session-hook-and-skill) for user-level installation paths, directory overrides, executable selection, and configuration safeguards.
-
-Alternatively, install the optional agent skill without a global binary install:
-
-```sh
-npx skills add knowttl/ldap-axi --skill ldap-axi
-```
-
-The skill provides static read-only command and authentication guidance with `npx -y @knowttl/ldap-axi` examples.
-It contains no local connection or credential state.
-See [development checks](CONTRIBUTING.md#development-checks) for skill regeneration and drift verification.
-
-Use `ldap-axi user --help`, `ldap-axi group --help`, `ldap-axi computer --help`, or `ldap-axi auth --help` to discover subcommands without connecting.
-Leaf help, such as `ldap-axi entry search --help` and `ldap-axi auth status --help`, lists flags, defaults, and usage examples.
-Unknown flags are rejected with exit 2 before connecting or binding.
-Run `ldap-axi server --profile <name>` to inspect rootDSE naming contexts, controls, extensions, SASL mechanisms, vendor facts, and advertised limits without selecting a search base.
-See [the rootDSE report contract](docs/design/v1.md#51-the-rootdse-probe) for flavor overrides, optional facts, and limit reporting.
-To build from source:
-
-```sh
-git clone https://github.com/knowttl/ldap-axi.git
-cd ldap-axi
-npm ci
-npm run build
-node dist/src/cli.js config path
-node dist/src/cli.js profile list
-node dist/src/cli.js auth status --offline
-```
-
-When following the setup below from this checkout, replace `ldap-axi` with `node dist/src/cli.js` and run it from the checkout directory.
-See [the support matrix](docs/support-matrix.md) for command status, supported platforms, native-provider installation, release provenance, and proved versus unproved behavior.
-The [v1 design](docs/design/v1.md) defines the read-only boundary and command contracts.
-
-## Simple-bind credentials
-
-ldap-axi uses the version 1 profiles envelope defined in [the credential contract](docs/design/v1.md#111-credential-standard-profiles-and-secretrefs).
-Run `ldap-axi config path` to find the file.
-On Linux it is `$XDG_CONFIG_HOME/ldap-axi/config.json` when XDG_CONFIG_HOME is absolute, otherwise `~/.config/ldap-axi/config.json`.
-On Windows it is `%APPDATA%\ldap-axi\config.json`; XDG variables are ignored.
-There is no configuration discovery from the working directory.
-Use `--config <path>` or `LDAP_AXI_CONFIG` to select another file.
-
-Create the config directory with mode `0700` and the config file with mode `0600` on POSIX.
-This retains ldap-axi's stricter private-config rule.
-A synthetic example:
+Create the file reported by `config path` with this minimal profile, replacing the synthetic server with your directory's real FQDN:
 
 ```json
 {
@@ -96,179 +64,214 @@ A synthetic example:
   "defaultProfile": "work",
   "profiles": {
     "work": {
-      "url": "ldaps://dc01.example.test:636",
-      "auth": "simple",
-      "bindDn": "uid=reader,dc=example,dc=test",
-      "bindPassword": { "env": "LDAP_AXI_BIND_PASSWORD" },
-      "caFile": "/absolute/path/corporate-root.pem"
+      "url": "ldaps://directory.example.test:636",
+      "auth": "gssapi"
     }
   }
 }
 ```
 
-Supply the referenced password variable through your secret manager or a secure terminal prompt, then run:
+On POSIX, create the containing directory with mode `0700` and the file with `0600`.
+On Windows, restrict their ACLs to your account.
+With an existing Kerberos ticket or domain sign-in and a trusted server certificate:
 
 ```sh
 ldap-axi profile list
 ldap-axi auth status --offline --profile work
-ldap-axi user list --profile work --limit 10
+ldap-axi user list --profile work --fields name,dn --limit 1
 ```
 
-`auth status --offline` reports selection and provenance without connecting or binding.
-A live `auth status` performs one bind, so failed credentials can affect account lockout counters.
-Use a directory account with read access only.
+The first command prints this exact output for the profile above:
 
-A password can also use a file SecretRef, such as `{"file":"/absolute/path/password"}`; use an absolute drive path on Windows.
-Keep password files private (`0600` or `0400` on POSIX).
-See [the credential contract](docs/design/v1.md#111-credential-standard-profiles-and-secretrefs) for reference defaults, file decoding, and accepted paths, and [file provenance](docs/design/v1.md#113-file-provenance-checks-and-the-windows-gap-stated-honestly) for the enforced checks.
-Inline passwords, stored secrets, password flags, and credentials in LDAP URLs are refused.
-ldap-axi does not store passwords or implement `auth login`.
+```text
+profiles[1]{name,url,auth}:
+  work,"ldaps://directory.example.test:636",gssapi
+help[1]: "Run `ldap-axi auth status --offline --profile <name>` to inspect a profile"
+```
 
-**Windows exception to the credential standard:** runtime subprocesses and platform tools are forbidden by ldap-axi's architecture, so it cannot verify DACLs using PowerShell or `icacls`.
-The operator must restrict file and directory ACLs to the owning account.
-When simple authentication reads a password-file reference, `auth status` reports its permissions as `unchecked (windows)`, never as verified.
+The user read produces the TOON shape shown above; your entries and completeness metadata depend on the directory.
+If naming-context discovery is ambiguous, add `base` to the profile or pass `--base "DC=example,DC=test"`.
+For a private CA, add `caFile` with its absolute path or use `NODE_EXTRA_CA_CERTS` before starting Node.
+`--ca-file` appends to Node's trust roots; `--ca-only` replaces them.
 
-See [the credential contract](docs/design/v1.md#111-credential-standard-profiles-and-secretrefs) for profile selection, source isolation, environment fields, and precedence.
-When supplying only `LDAP_AXI_BIND_PASSWORD` for a file profile, select it explicitly with `--profile` or `LDAP_AXI_PROFILE`; an unselected half env credential pair is an error.
-For an env profile, set `LDAP_AXI_URL` (or pass `--url`), `LDAP_AXI_AUTH=simple`, `LDAP_AXI_BIND_DN`, and `LDAP_AXI_BIND_PASSWORD`.
+<details>
+<summary>Use a simple-bind service account instead</summary>
 
-Legacy top-level config and `credentials.env` formats are never used for authentication.
-See [the migration contract](docs/design/v1.md#111-credential-standard-profiles-and-secretrefs) for when `CONFIG_MOVED` requires conversion to profiles and SecretRefs.
-Config-path overrides and the deprecated alias are documented in [config locations](docs/design/v1.md#152-config-and-credential-locations).
+Replace the `work` profile with the following, using your server and read-only account:
 
-For artium-axi, the package ships [axi-credential.schema.json](axi-credential.schema.json) with `bindPassword` marked `x-secret`.
-A host can write a single `artium` profile under private HOME/XDG directories and inject `{"env":"ARTIUM_SECRET_0"}` without translating credentials.
-The artium-axi adapter is delivered separately.
+```json
+{
+  "version": 1,
+  "defaultProfile": "work",
+  "profiles": {
+    "work": {
+      "url": "ldaps://directory.example.test:636",
+      "auth": "simple",
+      "bindDn": "uid=reader,dc=example,dc=test",
+      "bindPassword": { "env": "LDAP_AXI_BIND_PASSWORD" }
+    }
+  }
+}
+```
 
-## Kerberos single sign-on on Linux
+Supply `LDAP_AXI_BIND_PASSWORD` through a secret manager or a hidden terminal prompt, then run the same commands with `--profile work`.
+Do not paste passwords into shell commands or chat.
+A file SecretRef is also supported: `{"file":"/absolute/path/password"}`, with mode `0600` or `0400` on POSIX and an absolute drive path on Windows.
+There is no password flag or `auth login` command.
 
-Authentication defaults to `auto`, which uses the ambient Kerberos credential and makes no password fallback.
-It does not open simple-bind password files.
-Use the server's real FQDN and explicitly select GSSAPI when following the earlier simple-bind setup:
+</details>
+
+## Use with your agent
+
+Install the offline session integration for the agent you use:
 
 ```sh
-ldap-axi auth status --offline --auth gssapi --url ldap://dc01.example.test:389
-ldap-axi user list --auth gssapi --url ldap://dc01.example.test:389 --limit 10
+ldap-axi setup --app claude --hook
+ldap-axi setup --app codex --hook
+ldap-axi setup --app opencode --hook
 ```
 
-Plain `ldap://` with GSSAPI negotiates mandatory confidentiality and encrypts every post-bind LDAP message.
-It needs no CA file and no `--insecure-plaintext`.
-Verified LDAPS or StartTLS uses TLS channel binding and no SASL security layer, with no transport fallback.
-Simple bind over plaintext still requires explicit `--insecure-plaintext`.
-Use `--auth simple` or a profile with `auth: "simple"` when a configured service identity is required.
-Use `--anonymous` only for an explicitly anonymous invocation.
+Each integration injects the compact offline home view, including configured connection state and command discovery, without contacting a directory.
+Claude and Codex use native SessionStart hooks; OpenCode uses a managed system-context plugin.
+Install only the desired target.
+Rerun setup after moving the executable to repair its path.
 
-A Linux SSO host needs:
+For on-demand guidance, install the skill independently or add `--skill` to a setup command:
 
-1. Linux glibc x64, glibc 2.28 or newer, Node 24.11.0 or newer, and the compatible C++ runtime described in the [support matrix](docs/support-matrix.md).
-   musl and arm64 are rejected by design.
-2. Loader-visible `libgssapi_krb5.so.2`, `libkrb5.so.3`, `libk5crypto.so.3`, `libcom_err.so.2`, `libkrb5support.so.0`, and `libkeyutils.so.1`.
-   Debian/Ubuntu supplies these through `libgssapi-krb5-2`; RHEL/Rocky/Fedora uses `krb5-libs`.
-   ldap-axi itself does not require a `kinit` binary.
-   `krb5-user` or `krb5-workstation` is needed only when the operator wants `kinit`/`klist`.
-3. A valid ticket in the default credential cache.
-   Domain-joined hosts using sssd, realmd, or winbind normally obtain a logon TGT.
-   MIT Kerberos resolves FILE, KEYRING, or KCM caches; KCM also needs `sssd-kcm` running.
-   Live verification tested a FILE cache only.
-4. A `krb5.conf` mapping the server hostname to its realm.
-   Joined hosts normally already have this configuration.
-5. A URL using the DC's FQDN matching its `ldap/<fqdn>` SPN.
-   ldap-axi requests `ldap@<url-host>` without its own canonicalization.
-   Avoid aliases, short names, and IP addresses; an IP-literal URL requires `--gssapi-service`.
-   MIT's default `qualify_shortname` was observed to turn `localhost` into `ldap/localhost.@REALM`.
-   Real FQDNs avoid that short-name trap.
-6. For LDAPS or StartTLS, Node must trust the DC certificate.
-   Use `--ca-file /absolute/path/corporate-root.pem`, a profile's `caFile`, or `NODE_EXTRA_CA_CERTS`.
-   Node does not use `/etc/ssl/certs` by default.
-   `--ca-file` appends to Node's roots; `--ca-only` replaces them.
-
-For Nix/WSL, never prepend a whole system library directory to `LD_LIBRARY_PATH`.
-Follow the [support matrix's Kerberos-soname shim instructions](docs/support-matrix.md) to avoid loading an incompatible system libuv into Node.
-Provider or runtime absence is `GSSAPI_UNAVAILABLE`; failures are terminal and never switch to a password.
-
-## Single sign-on on Windows
-
-On Windows x64, ambient authentication uses the signed-in account's SSPI Negotiate context.
-Sign in with a domain account, use the DC's real FQDN, and ensure the machine can reach the directory and domain authentication services.
-The operating system chooses the package within one GSS-SPNEGO exchange; ldap-axi does not assert Kerberos rather than NTLM.
-Windows SSO remains unproven by a live Windows run.
-
-The `@knowttl/ldap-axi@0.1.0` bootstrap package ships only the Linux prebuild and needs a source fallback on Windows.
-Tag-workflow packages pin the Windows prebuild digest and retrieve the binary from the matching versioned GitHub release without requiring MSVC or the Windows SDK.
-If the verified prebuild cannot be installed, automatic mode attempts one source build requiring MSVC and the Windows SDK.
-The source fallback also needs node-gyp's prerequisites, including Python.
-See the [support matrix](docs/support-matrix.md) for installation paths and exact support limits.
-
-```powershell
-ldap-axi auth status --offline --auth gssapi --url ldap://dc01.example.test:389
-ldap-axi user list --auth gssapi --url ldap://dc01.example.test:389 --limit 10
+```sh
+npx skills add knowttl/ldap-axi --skill ldap-axi
+ldap-axi setup --app codex --skill
+ldap-axi setup --app codex --hook --skill --check
 ```
 
-The same scheme-selected confidentiality and TLS trust rules apply on Windows.
-For LDAPS/StartTLS, supply a trusted CA with `--ca-file C:\certs\corporate-root.pem` or `NODE_EXTRA_CA_CERTS`; keep verification enabled.
+`--check` never writes and exits 1 for missing or stale selected integrations.
+The skill contains static command and authentication guidance, with no local credentials.
+See [agent setup](docs/agent-setup.md) for host requirements, paths, and manual removal.
 
-## Local testing and contributing
+## Safety
+
+**v1 is strictly read-only.**
+It implements no directory add, modify, rename, move, delete, password change, or write-capable extended operation.
+There is no switch that unlocks directory writes.
+`setup` writes only the explicitly selected local agent integration.
+
+| Operation | Required permission or credential |
+| --- | --- |
+| Entry, user, group, computer and membership reads | Read access to the selected base, entries, and requested attributes; no directory administrator role required |
+| `server` | Access to advertised rootDSE facts |
+| Ambient authentication | Existing Kerberos credential cache on Linux or signed-in domain context on Windows |
+| Simple authentication | Directory identity permitted to bind and read |
+| Offline commands and help | Local configuration access only; no directory permission |
+| `setup` | Write access to the selected local agent configuration |
+
+Every connected invocation uses one authentication exchange, with no retry or password fallback.
+A failed AD bind can increment lockout counters, so validate configuration offline first.
+Anonymous access requires `--anonymous`.
+TLS verification stays enabled by default; simple bind over unencrypted LDAP requires `--insecure-plaintext`.
+
+Passwords come only from environment or file SecretRefs, never argv, inline config, or credential-bearing URLs.
+Resolved password values are redacted from CLI output; directory data and configured identities are output intentionally.
+Windows password-file ACLs are reported as `unchecked (windows)` and must be restricted by the operator.
+
+Directory commands send authentication exchanges and LDAP requests to the selected server; referrals are reported without being chased.
+Offline commands do not contact the directory.
+Windows native installation may download a digest-verified binary from the matching GitHub release.
+Native artifacts have release attestations, but are not platform-code-signed, and installation does not independently verify attestations.
+See the [security policy](SECURITY.md) and [support matrix](docs/support-matrix.md#what-is-proved-and-what-is-not).
+Live Windows SSPI and a completed GSSAPI bind against a production AD controller remain unproved; offline and disposable-directory tests do not establish those claims.
+
+## Configuration
+
+Run `ldap-axi config path` for the actual location.
+Linux uses `$XDG_CONFIG_HOME/ldap-axi/config.json` when XDG_CONFIG_HOME is absolute, otherwise `~/.config/ldap-axi/config.json`.
+Windows uses `%APPDATA%\ldap-axi\config.json` and ignores XDG variables.
+Configuration is never discovered from the working directory.
+
+| Flag | Environment | Profile key / behavior |
+| --- | --- | --- |
+| `--config` | `LDAP_AXI_CONFIG` | Select config file |
+| `--profile` | `LDAP_AXI_PROFILE` | Select a named profile; envelope `defaultProfile` otherwise |
+| `--url` | `LDAP_AXI_URL` | `url` |
+| `--base` | `LDAP_AXI_BASE` | `base`; otherwise naming-context discovery |
+| `--auth` | `LDAP_AXI_AUTH` | `auth`: `auto`, `gssapi`, `simple` |
+| `--start-tls` | `LDAP_AXI_START_TLS` | `startTls` |
+| `--ca-file` | `LDAP_AXI_CA_FILE` | `caFile`: absolute CA path |
+| `--tls-max-version 1.2` | `LDAP_AXI_TLS_MAX_VERSION` | `tlsMaxVersion`: optional TLS 1.2 cap |
+| `--page-size` | `LDAP_AXI_PAGE_SIZE` | `pageSize`: 1..1000; AD default 1000, LDAPv3 default 500 |
+| No secret flag | `LDAP_AXI_BIND_DN`, `LDAP_AXI_BIND_PASSWORD` | `bindDn`, `bindPassword` SecretRef |
+| `--fields`, `--attributes` | None | Output fields and safe raw attributes on supported commands |
+| `--limit`, `--max-rows`, `--all` | None | Bound list output; `--all` needs an explicit row budget |
+
+Select a file profile explicitly when supplying its password via the environment.
+Otherwise environment connection fields form a separate profile; a half DN/password pair fails with `CREDENTIAL_INCOMPLETE` and never falls back to another source.
+CLI overrides apply to the selected profile.
+See the [credential schema](axi-credential.schema.json) for the machine-readable envelope.
+
+| Authentication | Identity | Transport |
+| --- | --- | --- |
+| `auto` (default) | One ambient GSSAPI/SSPI attempt; no configured-password fallback | Scheme-selected, as below |
+| `gssapi` | Linux Kerberos or Windows SSPI Negotiate | Plain `ldap://`: mandatory SASL confidentiality; LDAPS/StartTLS: verified TLS with channel binding and no SASL layer |
+| `simple` | Explicit configured service identity; no native provider required | Prefer LDAPS or StartTLS |
+| `--anonymous` | Explicit anonymous access | Prefer LDAPS or StartTLS |
+
+For native prerequisites and troubleshooting, use the [Linux Kerberos](docs/kerberos.md) and [Windows](docs/windows.md) runbooks.
+
+## Commands
+
+<!-- BEGIN GENERATED COMMANDS -->
+| Command | Help summary |
+| --- | --- |
+| [`entry search`](docs/commands.md#entry-search) | Search directory entries. |
+| [`entry show`](docs/commands.md#entry-show) | entry show &lt;dn&gt; [--attributes a,b] |
+| [`user list`](docs/commands.md#user-list) | List user accounts. |
+| [`user show`](docs/commands.md#user-show) | Show one user by DN or identifier. |
+| [`user groups`](docs/commands.md#user-groups) | List the groups a user belongs to. |
+| [`group list`](docs/commands.md#group-list) | List groups. |
+| [`group show`](docs/commands.md#group-show) | Show one group by DN or identifier. |
+| [`group members`](docs/commands.md#group-members) | List a group's members. |
+| [`computer list`](docs/commands.md#computer-list) | List computers (AD machine accounts; LDAPv3 device fallback). |
+| [`computer show`](docs/commands.md#computer-show) | Show one computer by DN or exact identifier (AD: sAMAccountName or cn; LDAPv3: cn, using objectClass=device). |
+| [`auth status`](docs/commands.md#auth-status) | Reports the one selected authentication contract: credential provenance, native provider status, mechanism, SASL security layer, and TLS channel binding. |
+| [`server`](docs/commands.md#server) | Report rootDSE capabilities and server flavor. |
+| [`profile list`](docs/commands.md#profile-list) | profile list [--config &lt;path&gt;] |
+| [`config path`](docs/commands.md#config-path) | config path [--config &lt;path&gt;] |
+| [`setup`](docs/commands.md#setup) | Install or repair explicitly selected local agent integrations. No directory connection. |
+<!-- END GENERATED COMMANDS -->
+
+The table and [full command reference](docs/commands.md) are generated from the CLI's command registry and executable help.
+Run `ldap-axi <command> --help` for flags, defaults, and examples without connecting.
+Run `ldap-axi` with no arguments for the offline home view.
+
+Additional reads with the same profile:
+
+```sh
+ldap-axi group members engineering --profile work --fields name,dn --max-rows 25
+ldap-axi entry search --profile work --filter "(objectClass=person)" --attributes cn,mail --max-rows 25
+ldap-axi computer list --profile work --limit 10
+ldap-axi server --profile work
+```
+
+Use an identifier or DN from your own directory in place of `engineering`.
+
+List commands read one page by default; `--all --max-rows 2000` requests a longer bounded read.
+Inspect `count`, `partial`, `incomplete`, `stop_reason`, and membership `method`/`transitive` metadata before treating results as complete.
+Referrals are never chased and resumable cursors are unsupported.
+Unknown flags fail before connecting.
+Structured errors use `error`, `code`, and optional `help` on stdout; diagnostics use stderr.
+Exit codes are 0 for success, 1 for operational errors, and 2 for validation errors or incomplete credentials; `setup --check` also uses 1 for drift.
+
+## Contributing
 
 ```sh
 npm ci
 npm run verify
 ```
 
-For installation from a GitHub release archive on Windows or Linux, see [release installation](docs/support-matrix.md#installing-a-github-release-archive).
-
-Run the required checks locally with Node 24.11.0 or newer; they are offline and use synthetic fixtures.
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development checks and optional integration testing, and [SECURITY.md](SECURITY.md) for private vulnerability reporting.
-
-## Read-only
-
-**ldap-axi v1 is read-only.**
-It requires only directory read access, and it implements no add, modify, modifyDN, rename, move, delete,
-password-set, password-reset, or write-capable extended operation.
-
-This is an architectural invariant, not a default posture.
-
-Read-only in LDAP is harder than it looks, and the design does not rely on the shape of an operation's name:
-
-- **Extended operation is one protocol operation whose safety is entirely an OID.**
-  `1.3.6.1.4.1.1466.20037` is StartTLS and changes nothing; `1.3.6.1.4.1.4203.1.11.1` is RFC 3062 Password
-  Modify and changes a credential.
-  So extended operations are denied by default and admitted by a two-OID allowlist.
-- **Bind changes no entry and still has side effects.**
-  A failed bind against Active Directory increments `badPwdCount` and can lock an account out, so the design
-  permits exactly one bind per invocation and offers no credential-probing surface.
-- **A control can carry semantics its operation does not**, so the control list is closed too.
-
-Enforcement lives in a sealed client module that never exposes the underlying LDAP client, rather than in
-command-layer discipline.
-See `docs/design/v1.md` §0, §1.5, §3, and §4.
-
-An ldap-axi release that needs directory write access is wrong.
-
-## v1 command surface
-
-See [the support matrix](docs/support-matrix.md#command-surface) for implemented and planned commands, including offline configuration discovery.
-
-Read computers with `ldap-axi computer list --limit 100` and `ldap-axi computer show <identifier-or-dn>`.
-See the design's [computer flavor contract](docs/design/v1.md#54-flavor-neutral-and-flavor-specific-commands-stated-per-command) and [identifier resolution rules](docs/design/v1.md#55-identifier-resolution-for-user-show-group-show-and-computer-show) for AD machine accounts and the generic LDAPv3 device fallback.
-Use `--fields` to select flavor-supported output and `--attributes` to request safe raw attributes.
-Lists read one page by default; use `--all --max-rows <n>` for a bounded walk across pages.
-
-The design states per command which behavior is flavor-neutral and which is flavor-specific, and every group
-membership result reports whether it is transitive and how it was derived, because a direct-membership answer
-mistaken for a transitive one is a security-relevant error.
-
-See `docs/design/v1.md` §1 for scope and deferral rationale, and §5.4 for the flavor table.
-
-## Relationship to trxo/ldap-mcp
-
-[`trxo/ldap-mcp`](https://github.com/trxo/ldap-mcp) is used as a behavioral, domain, and scope reference only.
-It is not a fork base, not a dependency, and not part of ldap-axi at runtime.
-
-`docs/design/v1.md` §1.1 tabulates every deliberate divergence from it with the reason, including read-only by
-architecture rather than by an unset flag, structured output instead of prose-wrapped JSON, decoded binary
-attributes, in-process bounded paging instead of draining every page into memory, and no secret on the command
-line.
+Checks run locally on Node >=24.11.0 with synthetic fixtures, including generated reference and skill drift checks.
+See [Contributing](CONTRIBUTING.md), [Security](SECURITY.md), and the generated [Changelog](CHANGELOG.md).
 
 ## License
 
-[MIT](LICENSE), copyright knowttl.
+[MIT](LICENSE).
+
+If this project saved you time or helped your workflow, please consider giving it a ⭐ on GitHub to help others find it!

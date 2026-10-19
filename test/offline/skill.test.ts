@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { copyFile, cp, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import test from "node:test";
@@ -55,10 +55,12 @@ test("installed skill links resolve outside the repository", async () => {
 async function generatorFixture(body: (root: string, invoke: (...args: string[]) => ReturnType<typeof spawnSync>) => Promise<void>): Promise<void> {
   const root = await mkdtemp(join(tmpdir(), "ldap-axi-skill-generator-"));
   try {
-    for (const path of ["scripts/generate-skill.mjs", "dist/src/skill.js", "dist/src/home.js"]) {
+    for (const path of ["scripts/generate-skill.mjs", "README.md"]) {
       await mkdir(dirname(join(root, path)), { recursive: true });
       await copyFile(path, join(root, path));
     }
+    await cp("dist/src", join(root, "dist/src"), { recursive: true });
+    await symlink(join(process.cwd(), "node_modules"), join(root, "node_modules"), "junction");
     await writeFile(join(root, "package.json"), '{"type":"module"}');
     // A generation regression must fail even if it tries to swallow a network error.
     const guard = `import net from 'node:net'; import tls from 'node:tls'; import { syncBuiltinESMExports } from 'node:module';
@@ -84,17 +86,17 @@ test("skill generation writes both copies without reading settings or connecting
   });
 });
 
-for (const path of skillPaths) for (const state of ["stale", "missing"]) {
-  test(`skill check rejects ${state} ${path} without repairing it`, async () => {
+for (const path of [...skillPaths, "docs/commands.md", "README.md"]) for (const state of ["stale", "missing"]) {
+  test(`guidance check rejects ${state} ${path} without repairing it`, async () => {
     await generatorFixture(async (root, invoke) => {
       assert.equal(invoke().status, 0);
       const file = join(root, path);
-      if (state === "stale") await writeFile(file, "stale\n");
+      if (state === "stale") await writeFile(file, path === "README.md" ? "<!-- BEGIN GENERATED COMMANDS -->\nstale\n<!-- END GENERATED COMMANDS -->\n" : "stale\n");
       else await rm(file);
       const checked = invoke("--check");
       assert.equal(checked.status, 1);
       assert.ok(String(checked.stderr).includes(path));
-      if (state === "stale") assert.equal(await readFile(file, "utf8"), "stale\n");
+      if (state === "stale") assert.match(await readFile(file, "utf8"), /stale/);
       else await assert.rejects(readFile(file), { code: "ENOENT" });
     });
   });
