@@ -6,7 +6,7 @@ import test from "node:test";
 import { run } from "../../src/cli.js";
 import { BASE, byFilter, entry, RecordedDirectory } from "../support/fixtures.js";
 
-const readme = await readFile("README.md", "utf8");
+const readme = (await readFile("README.md", "utf8")).replaceAll("\r\n", "\n");
 const profiles = [...readme.matchAll(/```json\n([\s\S]*?)\n```/g)].map(match => match[1]);
 const outputs = [...readme.matchAll(/```text\n([\s\S]*?)\n```/g)].map(match => `${match[1]}\n`);
 
