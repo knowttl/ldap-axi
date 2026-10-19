@@ -123,6 +123,7 @@ async function writeFragmented(socket: tls.TLSSocket, frame: Buffer, observation
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- Existing unused helper retained for separate cleanup.
 async function writeProtectedFragmented(socket: tls.TLSSocket, plaintext: Buffer, observations: WriteObservations): Promise<void> {
   const frame = Buffer.alloc(4 + plaintext.length);
   frame.writeUInt32BE(plaintext.length, 0);
@@ -172,13 +173,11 @@ type FakeTlsSocket = Duplex & {
 };
 
 function fakeTlsSocket(certificate: Buffer, onWrite: (socket: FakeTlsSocket, chunk: Buffer) => void, options: Readonly<{ error?: Error; accepted?: boolean }> = {}): FakeTlsSocket {
-  let socket: FakeTlsSocket;
-  const base = new Duplex({
+  const socket = new Duplex({
     read: () => undefined,
     write: (chunk, _encoding, callback) => { if (!options.error) onWrite(socket, Buffer.from(chunk)); callback(options.error); },
     destroy: (error, callback) => callback(error),
   }) as FakeTlsSocket;
-  socket = base;
   const baseWrite = Duplex.prototype.write.bind(socket);
   const destroy = Duplex.prototype.destroy.bind(socket);
   Object.setPrototypeOf(socket, tls.TLSSocket.prototype);
@@ -437,7 +436,7 @@ test("StartTLS passes DNS SNI but verifies IP identities without sending IP SNI"
         anonymous: true,
         timeoutMs: 1_000,
       });
-      assert.deepEqual({ servername: tlsOptions?.servername, host: tlsOptions?.host, maxVersion: tlsOptions?.maxVersion }, { servername: hostname === "directory.example.test" ? hostname : undefined, host: hostname.replace(/[\[\]]/g, ""), maxVersion: "TLSv1.2" });
+      assert.deepEqual({ servername: tlsOptions?.servername, host: tlsOptions?.host, maxVersion: tlsOptions?.maxVersion }, { servername: hostname === "directory.example.test" ? hostname : undefined, host: hostname.replace(/[[\]]/g, ""), maxVersion: "TLSv1.2" });
       await directory.close();
     }
   } finally {

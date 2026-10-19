@@ -10,7 +10,10 @@ npm ci
 npm run verify
 ```
 
-`npm run verify` runs typechecking, architecture lint, the build, offline tests including packed-package consumer checks, and generated-skill drift verification.
+`npm run verify` runs typechecking, ESLint, architecture lint, the build, offline tests including packed-package consumer checks, and generated-skill drift verification.
+`npm run lint` checks maintained JavaScript and TypeScript with ESLint and then runs the architecture checks.
+Vendored sources, native prebuilds, and generated build and test output are excluded from ESLint.
+Use `npm run lint:architecture` to run only the architecture checks.
 The required checks run locally and use synthetic fixtures.
 Run them before submitting a pull request.
 Do not add GitHub test CI or CI badges as a substitute for local verification.

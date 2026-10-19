@@ -130,7 +130,7 @@ class LdapDirectory implements Directory {
 }
 
 export function validateFilter(filter: string): void {
-  try { FilterParser.parseString(filter); } catch (error) { throw new CliError("VALIDATION_ERROR", "--filter is not a valid LDAP filter", ["Run `ldap-axi entry search --help` for filter syntax"]); }
+  try { FilterParser.parseString(filter); } catch { throw new CliError("VALIDATION_ERROR", "--filter is not a valid LDAP filter", ["Run `ldap-axi entry search --help` for filter syntax"]); }
 }
 
 // Composes independently-valid filter fragments under one top-level AND. Each fragment is

@@ -92,6 +92,8 @@ function isIpLiteral(hostname: string): boolean {
 }
 
 function validateService(service: string): string {
+  // NUL is deliberately rejected in a host-based service name.
+  // eslint-disable-next-line no-control-regex
   if (!service || /[\u0000\r\n\t ]/.test(service)) throw new CliError("VALIDATION_ERROR", "--gssapi-service must be a non-empty host-based service name");
   return service;
 }

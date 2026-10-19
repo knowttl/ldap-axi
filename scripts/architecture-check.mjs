@@ -20,7 +20,7 @@ const declared = {
   integrity: /integrity is `(sha512-[A-Za-z0-9+/]+={0,2})`/.exec(upstream)?.[1],
 };
 if (declared.version !== providerManifest.version || declared.tag !== providerManifest.version || !declared.integrity || !upstream.includes("https://github.com/mongodb-js/kerberos")) throw new Error("vendor/kerberos/UPSTREAM.md no longer records the vendored provider's upstream version, tag, repository, and tarball integrity");
-if (rootPackage?.optionalDependencies?.["node-addon-api"] !== "8.9.2" || rootPackage?.optionalDependencies?.["node-gyp"] !== "11.5.0" || rootPackage.optionalDependencies?.kerberos || lock.packages?.["node_modules/kerberos"]) throw new Error("the native provider must be owned and built by the ldap-axi package root");
+if (rootPackage?.optionalDependencies?.["node-addon-api"] !== "8.9.2" || rootPackage?.optionalDependencies?.["node-gyp"] !== "12.4.0" || rootPackage.optionalDependencies?.kerberos || lock.packages?.["node_modules/kerberos"]) throw new Error("the native provider must be owned and built by the ldap-axi package root");
 if (providerManifest.name !== "kerberos" || providerManifest.version !== "7.0.0" || providerManifest.ldapAxiPatch?.level !== 1 || providerManifest.ldapAxiPatch?.entry !== "lib/ldap-axi-patch.js" || providerManifest.scripts || providerManifest.dependencies) throw new Error("vendored kerberos must remain inert source owned by the package root");
 const prebuildManifest = JSON.parse(await readFile("prebuilds/manifest.json", "utf8"));
 if (prebuildManifest.version !== 1 || prebuildManifest.release?.repository !== "knowttl/ldap-axi" || !prebuildManifest.artifacts || Array.isArray(prebuildManifest.artifacts)) throw new Error("native prebuild manifest is malformed");
