@@ -11,6 +11,26 @@ const SVC_DN = "CN=Old Svc,OU=Users,DC=example,DC=test";
 const JANE = entry(JANE_DN, { sAMAccountName: ["jdoe"], cn: ["Jane Doe"], userAccountControl: ["512"], lastLogonTimestamp: ["132223104000000000"] });
 const SVC = entry(SVC_DN, { sAMAccountName: ["svc_old"], cn: ["Old Svc"], userAccountControl: ["514"], lastLogonTimestamp: ["0"] });
 
+for (const flavor of ["ad", "adlds", "ldapv3"] as const) {
+  test(`${flavor} user show selects description and display_name`, async () => {
+    const alice = entry("CN=alice,DC=example,DC=test", { description: ["Synthetic account"], displayName: ["Alice Example"] });
+    const directory = new RecordedDirectory(flavor, [byFilter(["alice"], [alice])]);
+    const result = await showUser(directory, { base: BASE, flavor, identifier: "alice", pageSize: 500, fields: ["description", "display_name"] });
+    assert.deepEqual(result.data.user, { description: "Synthetic account", display_name: "Alice Example" });
+    assert.deepEqual(directory.requests[0].attributes, ["description", "displayName"]);
+  });
+}
+for (const [attribute, hint] of [["sAMAccountName", "--fields sam"], ["displayName", "--fields display_name"], ["MEMBEROF", "ldap-axi user groups <identifier-or-dn>"]] as const) {
+  test(`user show rejects directory attribute ${attribute} with an actionable hint`, async () => {
+    const directory = new RecordedDirectory("ad", []);
+    await assert.rejects(
+      () => showUser(directory, { base: BASE, flavor: "ad", identifier: "alice", pageSize: 500, fields: [attribute] }),
+      (error: unknown) => error instanceof CliError && error.code === "VALIDATION_ERROR" && error.help.some(line => line.includes(hint)),
+    );
+    assert.equal(directory.requests.length, 0);
+  });
+}
+
 test("AD user list decodes enabled from userAccountControl and renders FILETIME sentinels honestly", async () => {
   const directory = new RecordedDirectory("ad", [byFilter(["objectCategory=person"], [JANE, SVC])]);
   const result = await listUsers(directory, { base: BASE, flavor: "ad", pageSize: 500, all: true, scope: "sub" });

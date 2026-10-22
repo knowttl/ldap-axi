@@ -55,6 +55,8 @@ function computeUserField(entry: Entry, name: string): unknown {
     case "sam": return first(entry, "sAMAccountName");
     case "upn": return first(entry, "userPrincipalName");
     case "name": return first(entry, "cn");
+    case "description": return first(entry, "description");
+    case "display_name": return first(entry, "displayName");
     case "uid": return first(entry, "uid");
     case "mail": return first(entry, "mail");
     case "uid_number": return first(entry, "uidNumber");
