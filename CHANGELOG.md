@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.3.0](https://github.com/knowttl/ldap-axi/compare/v0.2.0...v0.3.0) (2026-10-22)
+
+
+### Features
+
+* add Codex and OpenCode setup integrations ([#20](https://github.com/knowttl/ldap-axi/issues/20)) ([6966c17](https://github.com/knowttl/ldap-axi/commit/6966c171be87535437d2273dad31839970f3a315))
+
+
+### Bug Fixes
+
+* correct Active Directory group lookup by name ([#33](https://github.com/knowttl/ldap-axi/issues/33)) ([aabc92c](https://github.com/knowttl/ldap-axi/commit/aabc92ccb4083c1697430cc40838aba0c6f0b9c6))
+* expose missing user fields and improve field-selection hints ([#34](https://github.com/knowttl/ldap-axi/issues/34)) ([f390d5c](https://github.com/knowttl/ldap-axi/commit/f390d5c314c23a994d60c96d52bfdf3b730259b6))
+* recover existing releases using updated workflows ([#18](https://github.com/knowttl/ldap-axi/issues/18)) ([1a45948](https://github.com/knowttl/ldap-axi/commit/1a4594885216fa03a7a86b0926aea8cc2911db7f))
+
 ## [0.2.0](https://github.com/knowttl/ldap-axi/compare/v0.1.5...v0.2.0) (2026-10-19)
 
 
