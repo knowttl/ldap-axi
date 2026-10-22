@@ -45,6 +45,43 @@ for (const [attribute, hint] of [["sAMAccountName", "--fields sam"], ["displayNa
 }
 
 for (const [command, run, fields] of [
+  ["list", listUsers, ["description"]],
+  ["show", showUser, ["description"]],
+  ["show defaults", showUser, undefined],
+] as const) {
+  for (const flavor of ["ad", "adlds"] as const) {
+    for (const attributes of [undefined, ["description"]]) {
+      for (const [label, returnedAttributes, expected] of [
+        ["absent", {}, undefined],
+        ["empty string", { description: [""] }, ""],
+        ["single value", { description: ["Operations"] }, "Operations"],
+        ["multiple values", { description: ["Operations", "On-call"] }, ["Operations", "On-call"]],
+      ] as const) {
+        test(`${flavor} user ${command} preserves ${label} description with raw attributes ${String(attributes)}`, async () => {
+          const alice = entry("CN=alice,DC=example,DC=test", returnedAttributes);
+          const directory = new RecordedDirectory(flavor, [byFilter([], [alice])]);
+          const result = await run(directory, { base: BASE, flavor, identifier: "alice", pageSize: 500, all: true, scope: "sub", fields, attributes });
+          const rows = result.data.users as Record<string, unknown>[] | undefined;
+          const user = (rows?.[0] ?? result.data.user) as Record<string, unknown>;
+          assert.deepEqual(user.description, expected);
+        });
+      }
+      test(`${flavor} user ${command} bounds multiple descriptions with raw attributes ${String(attributes)}`, async () => {
+        const descriptions = ["x".repeat(1000), ...Array.from({ length: 50 }, (_, index) => `Description ${index}`)];
+        const alice = entry("CN=alice,DC=example,DC=test", { description: descriptions });
+        const directory = new RecordedDirectory(flavor, [byFilter([], [alice])]);
+        const result = await run(directory, { base: BASE, flavor, identifier: "alice", pageSize: 500, all: true, scope: "sub", fields, attributes });
+        const rows = result.data.users as Record<string, unknown>[] | undefined;
+        const user = (rows?.[0] ?? result.data.user) as Record<string, unknown>;
+        assert.deepEqual(user.description, [`${"x".repeat(800)}… (truncated, 1000 chars total)`, ...descriptions.slice(1, 50)]);
+        assert.equal(user.description_value_count, 51);
+        assert.equal(user.description_values_truncated, true);
+      });
+    }
+  }
+}
+
+for (const [command, run, fields] of [
   ["list", listUsers, ["description", "display_name", "memberOf"]],
   ["show", showUser, undefined],
 ] as const) {

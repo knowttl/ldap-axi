@@ -11,7 +11,7 @@ import { membershipHelp, membershipSummary, readMultivaluedAttribute, resolveDnM
 import { walkHelp, walkMetadata, walkPages } from "./directory/walk.js";
 import { isAdFlavor, selectFields, userGroupsSchema, userListSchema, userShowSchema } from "./schema.js";
 import { assertAttributes, renderAttribute, requestedAttributes } from "./entry.js";
-import { compact, redactText, truncate } from "./render.js";
+import { compact } from "./render.js";
 import type { SecretRedactor } from "./secrets.js";
 
 const PERMANENT_PASSWORD_LOCK = "000001010000Z";
@@ -79,8 +79,8 @@ function computeUserField(entry: Entry, name: string): unknown {
 function renderUserRow(entry: Entry, names: readonly string[], attributes?: readonly string[], redactor?: SecretRedactor): Record<string, unknown> {
   const row = { ...compact(Object.fromEntries(names.map(name => [name, computeUserField(entry, name)]))), ...requestedAttributes(entry, attributes, redactor) };
   for (const [name, attribute] of [["description", "description"], ["display_name", "displayName"]]) {
-    const value = names.includes(name) ? first(entry, attribute) : undefined;
-    if (value !== undefined) row[name] = truncate(redactText(value, redactor));
+    const fieldValues = names.includes(name) ? values(entry, attribute) : [];
+    if (fieldValues.length) Object.assign(row, renderAttribute(name, fieldValues, redactor));
   }
   if (names.includes("memberOf")) {
     for (const [name, memberOf] of Object.entries(entry.attributes)) {
