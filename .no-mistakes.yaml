@@ -2,3 +2,20 @@ no_ci: true
 commands:
   test: npm test
   lint: npm run lint
+review:
+  path_instructions:
+    - path: "**"
+      instructions: |
+        Validation must stay offline and use only the offline suite and fixtures.
+        Never start, install, provision, or connect to any directory, LDAP, Active Directory, or Samba service, including test:local-directory, containers, or local daemons.
+        Report scenarios that need a live directory as untested rather than standing one up.
+test:
+  instructions: |
+    Validation must stay offline and use only the offline suite and fixtures.
+    Never start, install, provision, or connect to any directory, LDAP, Active Directory, or Samba service, including test:local-directory, containers, or local daemons.
+    Report scenarios that need a live directory as untested rather than standing one up.
+document:
+  instructions: |
+    Validation must stay offline and use only the offline suite and fixtures.
+    Never start, install, provision, or connect to any directory, LDAP, Active Directory, or Samba service, including test:local-directory, containers, or local daemons.
+    Report scenarios that need a live directory as untested rather than standing one up.
