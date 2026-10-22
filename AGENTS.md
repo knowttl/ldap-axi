@@ -143,9 +143,7 @@ Each is owned by `docs/design/v1.md` and pinned by a regression in §18.5.
 - **Active Directory silently truncates at `MaxPageSize` (default 1000) without the paged control.**
   Not an error - a plausible-looking, quietly incomplete result. Paging is unconditional; there is no flag to
   disable it.
-- **`@toon-format/toon` 2.3.1 does quote comma-bearing values inside inline arrays.**
-  The fleet's mangling note applies to the hand-formatted `help[N]:` block, which bypasses `encode()`, not to
-  encoded row data. The keyed tabular form is still unavailable at 2.3.1.
+- **TOON output shapes and quoting constraints are owned by `docs/design/v1.md` §13.1.**
 - **`axi-sdk-js` 0.1.8 does not export `renderError`.** Return a string or object to `runAxiCli` and throw
   `AxiError`; pass an own `formatError`, because `exitCodeForError` maps only literal `VALIDATION_ERROR` to
   exit 2 and this project has many exit-2 codes.
