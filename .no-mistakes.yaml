@@ -1,1 +1,4 @@
 no_ci: true
+commands:
+  test: npm test
+  lint: npm run lint
