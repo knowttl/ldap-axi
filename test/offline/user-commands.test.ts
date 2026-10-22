@@ -154,6 +154,19 @@ test("AD user groups resolves tokenGroups SIDs to names and reports transitive:t
   assert.equal(result.data.method, "tokenGroups");
   assert.deepEqual(result.data.groups, [{ name: "IT Staff", dn: group.dn, type: "group" }]);
 });
+test("AD user groups by name requests tokenGroups only on the resolved user's base read", async () => {
+  const dn = `CN=alice,${BASE}`;
+  const group = entry(`CN=engineering,${BASE}`, { cn: ["engineering"], objectClass: ["group"], objectSid: [encodeSid(`${DOMAIN_SID}-1108`).toString("base64")] });
+  const user = entry(dn, { tokenGroups: [encodeSid(`${DOMAIN_SID}-1108`).toString("base64")] });
+  const directory = new RecordedDirectory("ad", [request => {
+    if (request.scope !== "base" && request.attributes.includes("tokenGroups")) throw Object.assign(new Error("operations error"), { code: 1 });
+    return undefined;
+  }, byDn(dn, user), byFilter(["sAMAccountName=alice"], [entry(dn, {})]), byFilter(["objectSid="], [group])]);
+  const result = await userGroups(directory, { base: BASE, flavor: "ad", identifier: "alice", pageSize: 500 });
+  assert.deepEqual(result.data.groups, [{ name: "engineering", dn: group.dn, type: "group" }]);
+  assert.deepEqual(directory.requests.filter(request => request.attributes.includes("tokenGroups")).map(request => ({ base: request.base, scope: request.scope })), [{ base: dn, scope: "base" }]);
+  assert.ok(["objectSid", "primaryGroupID", "memberOf"].every(attribute => directory.requests[1].attributes.includes(attribute)));
+});
 test("AD user groups falls back to memberOf plus primaryGroupID when tokenGroups is absent, and is not transitive", async () => {
   const domainUsersSid = `${DOMAIN_SID}-${DOMAIN_USERS_RID}`;
   const domainUsers = entry("CN=Domain Users,CN=Users,DC=example,DC=test", { cn: ["Domain Users"], objectClass: ["group"], objectSid: [encodeSid(domainUsersSid).toString("base64")] });

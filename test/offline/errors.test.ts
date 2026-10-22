@@ -69,6 +69,7 @@ test("server-limit result codes translate to SERVER_LIMIT outside a page walk", 
   for (const code of [3, 4, 11]) assert.ok((translateLdapError(resultCodeError(code)) as CliError).code === "SERVER_LIMIT");
 });
 test("stronger-auth, unsupported, not-found, invalid-dn, insufficient-access, and busy codes translate distinctly", () => {
+  for (const [code, expected] of [[1, "OPERATIONS_ERROR"], [2, "PROTOCOL_ERROR"]] as const) assert.equal(translateLdapError(resultCodeError(code)).code, expected);
   assert.equal((translateLdapError(resultCodeError(8)) as CliError).code, "STRONGER_AUTH_REQUIRED");
   assert.equal((translateLdapError(resultCodeError(13)) as CliError).code, "STRONGER_AUTH_REQUIRED");
   assert.equal((translateLdapError(resultCodeError(12)) as CliError).code, "UNSUPPORTED_BY_SERVER");
@@ -77,7 +78,12 @@ test("stronger-auth, unsupported, not-found, invalid-dn, insufficient-access, an
   assert.equal((translateLdapError(resultCodeError(50)) as CliError).code, "INSUFFICIENT_ACCESS");
   assert.equal((translateLdapError(resultCodeError(51)) as CliError).code, "SERVER_BUSY");
   assert.equal((translateLdapError(resultCodeError(52)) as CliError).code, "SERVER_BUSY");
-  assert.equal((translateLdapError(resultCodeError(2)) as CliError).code, "PROTOCOL_ERROR");
+});
+test("operations errors retain the numeric code and explain scope remedies", () => {
+  const translated = translateLdapError(resultCodeError(1));
+  assert.match(translated.message, /LDAP result code 1/);
+  assert.doesNotMatch(translated.message, /unrecognized/);
+  assert.match(translated.help.join(" "), /naming context.*base-scope read.*entry's DN/);
 });
 test("an unmapped result code is UNKNOWN and reports the number, never a raw library error", () => {
   const translated = translateLdapError(resultCodeError(999, "some obscure diagnostic")) as CliError;

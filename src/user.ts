@@ -2,6 +2,7 @@ import { CliError, first, unsupportedFlavorFlag, values, type Directory, type En
 import { composeFilter } from "./directory/client.js";
 import { filterValue, wildcardValue } from "./directory/escape.js";
 import { resolveIdentity, type IdentityQuery } from "./directory/identity.js";
+import { isDn } from "./directory/dn.js";
 import { decodeSid, domainSid, sidWithRid } from "./directory/sid.js";
 import { decodeGuid } from "./directory/guid.js";
 import { decodeFiletime, decodeGeneralizedTime } from "./directory/time.js";
@@ -241,7 +242,9 @@ export async function userGroups(directory: Directory, options: UserGroupsOption
   const schema = userGroupsSchema(options.flavor);
   const { names, attributes, fieldAttributes } = selectFields(schema, options.fields);
   const query = userIdentityQuery(options.identifier, ad);
-  const entry = await resolveIdentity(directory, options.identifier, options.base, query, attributes, options.pageSize);
+  const needsBaseRead = ad && !isDn(options.identifier);
+  const resolved = await resolveIdentity(directory, options.identifier, options.base, query, needsBaseRead ? attributes.filter(attribute => attribute !== "tokenGroups") : attributes, options.pageSize);
+  const entry = needsBaseRead ? await resolveIdentity(directory, resolved.dn, options.base, query, attributes, options.pageSize) : resolved;
   const cap = options.maxRows ?? (ad ? 1000 : 500);
   const { walk, method, transitive } = ad ? await adUserGroups(directory, options.base, entry, cap, options.pageSize, fieldAttributes, Boolean(options.nested)) : await genericUserGroups(directory, options.base, entry, cap, options.pageSize, fieldAttributes);
   const rawTotal = walk.rows.length + walk.unresolved.length;
