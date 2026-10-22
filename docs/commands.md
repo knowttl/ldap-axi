@@ -88,7 +88,7 @@ Flags:
   --limit  <n> alias for bounded list output
   --fields  <name,...> select output fields
   --attributes  <name,...> request and emit raw attributes
-Active Directory fields: sam, upn, name, dn, enabled, locked, last_logon, object_sid, when_created
+Active Directory fields: sam, upn, name, dn, enabled, locked, last_logon, object_sid, when_created, description, display_name, memberOf
 Active Directory defaults: sam, name, enabled, last_logon
 LDAPv3 fields: uid, name, mail, enabled, locked, account_state, dn, entry_uuid, when_created
 LDAPv3 defaults: uid, name, mail, enabled, locked, account_state
@@ -121,8 +121,8 @@ Flags:
   --gssapi-protection  <none|confidentiality> required GSSAPI protection; the URL scheme selects it (default: none over TLS, confidentiality over plain LDAP)
   --fields  <name,...> select output fields
   --attributes  <name,...> request and emit raw attributes
-Active Directory fields: dn, sam, upn, name, enabled, account_state, password_last_set, account_expires, last_logon, object_sid, object_guid, when_created, when_changed
-Active Directory defaults: dn, sam, upn, name, enabled, account_state, password_last_set, account_expires, last_logon, object_sid, object_guid, when_created, when_changed
+Active Directory fields: dn, sam, upn, name, enabled, account_state, password_last_set, account_expires, last_logon, object_sid, object_guid, when_created, when_changed, description, display_name, memberOf
+Active Directory defaults: dn, sam, upn, name, enabled, account_state, password_last_set, account_expires, last_logon, object_sid, object_guid, when_created, when_changed, description, display_name, memberOf
 LDAPv3 fields: dn, uid, name, mail, enabled, locked, account_state, uid_number, gid_number, home_directory, login_shell, gecos, entry_uuid, when_created, when_changed
 LDAPv3 defaults: dn, uid, name, mail, enabled, locked, account_state, uid_number, gid_number, home_directory, login_shell, gecos, entry_uuid, when_created, when_changed
 Examples:

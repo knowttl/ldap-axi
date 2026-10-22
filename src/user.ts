@@ -10,7 +10,7 @@ import { decodeUserAccountControl, UAC_ACCOUNTDISABLE_BIT, UAC_LOCKOUT_BIT, UAC_
 import { membershipHelp, membershipSummary, readMultivaluedAttribute, resolveDnMembers, resolveSidMembers, type MembershipWalk } from "./directory/membership.js";
 import { walkHelp, walkMetadata, walkPages } from "./directory/walk.js";
 import { isAdFlavor, selectFields, userGroupsSchema, userListSchema, userShowSchema } from "./schema.js";
-import { assertAttributes, requestedAttributes } from "./entry.js";
+import { assertAttributes, renderAttribute, requestedAttributes } from "./entry.js";
 import { compact } from "./render.js";
 import type { SecretRedactor } from "./secrets.js";
 
@@ -78,6 +78,13 @@ function computeUserField(entry: Entry, name: string): unknown {
 }
 function renderUserRow(entry: Entry, names: readonly string[], attributes?: readonly string[], redactor?: SecretRedactor): Record<string, unknown> {
   const row = { ...compact(Object.fromEntries(names.map(name => [name, computeUserField(entry, name)]))), ...requestedAttributes(entry, attributes, redactor) };
+  for (const [name, attribute] of [["description", "description"], ["display_name", "displayName"], ["memberOf", "memberOf"]]) {
+    if (!names.includes(name)) continue;
+    for (const [key, fieldValues] of Object.entries(entry.attributes)) {
+      const match = /^([^;]+)(;range=\d+-(?:\d+|\*))?$/i.exec(key);
+      if (match && match[1].toLowerCase() === attribute.toLowerCase() && fieldValues.length) Object.assign(row, renderAttribute(match[2] ? key : name, fieldValues, redactor, name === "memberOf"));
+    }
+  }
   if (names.includes("object_sid") && row.object_sid !== undefined) row.object_sid_raw = first(entry, "objectSid_raw") ?? first(entry, "objectSid");
   if (names.includes("object_guid") && row.object_guid !== undefined) row.object_guid_raw = first(entry, "objectGUID_raw") ?? first(entry, "objectGUID");
   return row;
