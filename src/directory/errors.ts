@@ -45,6 +45,7 @@ function translateBindFailure(message: string): CliError {
 const NARROW_HELP = ["Narrow the filter, lower --max-rows, or scope the base more tightly"];
 function translateResultCode(code: number): CliError {
   switch (code) {
+    case 1: return new CliError("OPERATIONS_ERROR", "the server could not perform the operation (LDAP result code 1)", ["The request may have crossed a naming context or required a base-scope read; retry with the entry's DN"]);
     case 2: return new CliError("PROTOCOL_ERROR", "the server reported a protocol error");
     case 3: return new CliError("SERVER_LIMIT", "the server's time limit stopped the operation before any entries were retained", NARROW_HELP);
     case 4: return new CliError("SERVER_LIMIT", "the server's size limit stopped the operation before any entries were retained", NARROW_HELP);

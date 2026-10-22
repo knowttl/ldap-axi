@@ -6,7 +6,7 @@ export type ErrorCode =
   | "NOT_FOUND" | "TLS_REQUIRED" | "TLS_UNTRUSTED" | "SERVER_UNREACHABLE"
   | "GSSAPI_UNAVAILABLE" | "GSSAPI_CREDENTIAL_UNAVAILABLE" | "GSSAPI_PREPARATION_FAILED" | "GSSAPI_NEGOTIATION_FAILED"
   | "OPERATION_TIMEOUT" | "CURSOR_EXPIRED" | "SERVER_LIMIT" | "READ_ONLY_VIOLATION"
-  | "PROTOCOL_ERROR" | "UNKNOWN";
+  | "OPERATIONS_ERROR" | "PROTOCOL_ERROR" | "UNKNOWN";
 
 export class CliError extends Error {
   constructor(readonly code: ErrorCode, message: string, readonly help: string[] = [], readonly exitCode = code === "VALIDATION_ERROR" || code === "CREDENTIAL_INCOMPLETE" ? 2 : 1) {
