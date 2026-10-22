@@ -18,8 +18,8 @@ export function assertAttributes(attributes: readonly string[]): void {
     if (isPasswordAttribute(attribute)) throw new CliError("VALIDATION_ERROR", `attribute ${attribute} is never requested or emitted`);
   }
 }
-function renderAttribute(name: string, values: readonly string[], redactor?: SecretRedactor): Record<string, unknown> {
-  const rendered = values.length === 1 ? truncate(redactText(values[0], redactor)) : values.slice(0, 50).map(value => truncate(redactText(value, redactor)));
+export function renderAttribute(name: string, values: readonly string[], redactor?: SecretRedactor, asList = false): Record<string, unknown> {
+  const rendered = values.length === 1 && !asList ? truncate(redactText(values[0], redactor)) : values.slice(0, 50).map(value => truncate(redactText(value, redactor)));
   return values.length > 50
     ? { [name]: rendered, [`${name}_value_count`]: values.length, [`${name}_values_truncated`]: true }
     : { [name]: rendered };

@@ -10,8 +10,8 @@ import { decodeUserAccountControl, UAC_ACCOUNTDISABLE_BIT, UAC_LOCKOUT_BIT, UAC_
 import { membershipHelp, membershipSummary, readMultivaluedAttribute, resolveDnMembers, resolveSidMembers, type MembershipWalk } from "./directory/membership.js";
 import { walkHelp, walkMetadata, walkPages } from "./directory/walk.js";
 import { isAdFlavor, selectFields, userGroupsSchema, userListSchema, userShowSchema } from "./schema.js";
-import { assertAttributes, requestedAttributes } from "./entry.js";
-import { compact } from "./render.js";
+import { assertAttributes, renderAttribute, requestedAttributes } from "./entry.js";
+import { compact, redactText, truncate } from "./render.js";
 import type { SecretRedactor } from "./secrets.js";
 
 const PERMANENT_PASSWORD_LOCK = "000001010000Z";
@@ -55,8 +55,6 @@ function computeUserField(entry: Entry, name: string): unknown {
     case "sam": return first(entry, "sAMAccountName");
     case "upn": return first(entry, "userPrincipalName");
     case "name": return first(entry, "cn");
-    case "description": return first(entry, "description");
-    case "display_name": return first(entry, "displayName");
     case "uid": return first(entry, "uid");
     case "mail": return first(entry, "mail");
     case "uid_number": return first(entry, "uidNumber");
@@ -80,6 +78,15 @@ function computeUserField(entry: Entry, name: string): unknown {
 }
 function renderUserRow(entry: Entry, names: readonly string[], attributes?: readonly string[], redactor?: SecretRedactor): Record<string, unknown> {
   const row = { ...compact(Object.fromEntries(names.map(name => [name, computeUserField(entry, name)]))), ...requestedAttributes(entry, attributes, redactor) };
+  for (const [name, attribute] of [["description", "description"], ["display_name", "displayName"]]) {
+    const value = names.includes(name) ? first(entry, attribute) : undefined;
+    if (value !== undefined) row[name] = truncate(redactText(value, redactor));
+  }
+  if (names.includes("memberOf")) {
+    for (const [name, memberOf] of Object.entries(entry.attributes)) {
+      if (/^memberOf(?:;range=\d+-(?:\d+|\*))?$/i.test(name) && memberOf.length) Object.assign(row, renderAttribute(name.includes(";") ? name : "memberOf", memberOf, redactor, true));
+    }
+  }
   if (names.includes("object_sid") && row.object_sid !== undefined) row.object_sid_raw = first(entry, "objectSid_raw") ?? first(entry, "objectSid");
   if (names.includes("object_guid") && row.object_guid !== undefined) row.object_guid_raw = first(entry, "objectGUID_raw") ?? first(entry, "objectGUID");
   return row;

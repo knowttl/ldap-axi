@@ -11,16 +11,29 @@ const SVC_DN = "CN=Old Svc,OU=Users,DC=example,DC=test";
 const JANE = entry(JANE_DN, { sAMAccountName: ["jdoe"], cn: ["Jane Doe"], userAccountControl: ["512"], lastLogonTimestamp: ["132223104000000000"] });
 const SVC = entry(SVC_DN, { sAMAccountName: ["svc_old"], cn: ["Old Svc"], userAccountControl: ["514"], lastLogonTimestamp: ["0"] });
 
-for (const flavor of ["ad", "adlds", "ldapv3"] as const) {
-  test(`${flavor} user show selects description and display_name`, async () => {
-    const alice = entry("CN=alice,DC=example,DC=test", { description: ["Synthetic account"], displayName: ["Alice Example"] });
-    const directory = new RecordedDirectory(flavor, [byFilter(["alice"], [alice])]);
-    const result = await showUser(directory, { base: BASE, flavor, identifier: "alice", pageSize: 500, fields: ["description", "display_name"] });
-    assert.deepEqual(result.data.user, { description: "Synthetic account", display_name: "Alice Example" });
-    assert.deepEqual(directory.requests[0].attributes, ["description", "displayName"]);
-  });
+for (const [command, run, key, expected] of [
+  ["list", listUsers, "users", [{ description: "Synthetic account", display_name: "Alice Example", memberOf: ["CN=Staff,DC=example,DC=test"] }]],
+  ["show", showUser, "user", { description: "Synthetic account", display_name: "Alice Example", memberOf: ["CN=Staff,DC=example,DC=test"] }],
+] as const) {
+  for (const flavor of ["ad", "adlds"] as const) {
+    test(`${flavor} user ${command} selects description, display_name and memberOf`, async () => {
+      const alice = entry("CN=alice,DC=example,DC=test", { description: ["Synthetic account"], displayName: ["Alice Example"], memberOf: ["CN=Staff,DC=example,DC=test"] });
+      const directory = new RecordedDirectory(flavor, [byFilter([], [alice])]);
+      const result = await run(directory, { base: BASE, flavor, identifier: "alice", pageSize: 500, all: true, scope: "sub", fields: ["description", "display_name", "memberOf"] });
+      assert.deepEqual(result.data[key], expected);
+      assert.deepEqual(directory.requests[0].attributes, ["description", "displayName", "memberOf"]);
+    });
+  }
+  for (const field of ["description", "display_name", "memberOf"]) {
+    test(`LDAPv3 user ${command} rejects AD-only ${field}`, async () => {
+      const directory = new RecordedDirectory("ldapv3", []);
+      await assert.rejects(() => run(directory, { base: BASE, flavor: "ldapv3", identifier: "alice", pageSize: 500, all: true, scope: "sub", fields: [field] }),
+        (error: unknown) => error instanceof CliError && error.code === "VALIDATION_ERROR");
+      assert.equal(directory.requests.length, 0);
+    });
+  }
 }
-for (const [attribute, hint] of [["sAMAccountName", "--fields sam"], ["displayName", "--fields display_name"], ["MEMBEROF", "ldap-axi user groups <identifier-or-dn>"]] as const) {
+for (const [attribute, hint] of [["sAMAccountName", "--fields sam"], ["displayName", "--fields display_name"]] as const) {
   test(`user show rejects directory attribute ${attribute} with an actionable hint`, async () => {
     const directory = new RecordedDirectory("ad", []);
     await assert.rejects(
@@ -28,6 +41,37 @@ for (const [attribute, hint] of [["sAMAccountName", "--fields sam"], ["displayNa
       (error: unknown) => error instanceof CliError && error.code === "VALIDATION_ERROR" && error.help.some(line => line.includes(hint)),
     );
     assert.equal(directory.requests.length, 0);
+  });
+}
+
+for (const [command, run, fields] of [
+  ["list", listUsers, ["description", "display_name", "memberOf"]],
+  ["show", showUser, undefined],
+] as const) {
+  test(`AD user ${command} bounds new text fields and membership values`, async () => {
+    const text = "x".repeat(1000);
+    const groups = Array.from({ length: 51 }, (_, index) => `CN=Group ${index},DC=example,DC=test`);
+    const alice = entry("CN=alice,DC=example,DC=test", { description: [text], displayName: [text], memberOf: groups });
+    const directory = new RecordedDirectory("ad", [byFilter([], [alice])]);
+    const result = await run(directory, { base: BASE, flavor: "ad", identifier: "alice", pageSize: 500, all: true, scope: "sub", fields });
+    const rows = result.data.users as Record<string, unknown>[] | undefined;
+    const user = (rows?.[0] ?? result.data.user) as Record<string, unknown>;
+    assert.equal(user.description, `${"x".repeat(800)}… (truncated, 1000 chars total)`);
+    assert.equal(user.display_name, `${"x".repeat(800)}… (truncated, 1000 chars total)`);
+    assert.deepEqual(user.memberOf, groups.slice(0, 50));
+    assert.equal(user.memberOf_value_count, 51);
+    assert.equal(user.memberOf_values_truncated, true);
+  });
+  test(`AD user ${command} preserves ranged membership and truncates its text`, async () => {
+    const dn = `CN=${"x".repeat(900)},DC=example,DC=test`;
+    const alice = entry("CN=alice,DC=example,DC=test", { memberOf: [], "memberOf;range=0-*": [dn] });
+    const directory = new RecordedDirectory("ad", [byFilter([], [alice])]);
+    const result = await run(directory, { base: BASE, flavor: "ad", identifier: "alice", pageSize: 500, all: true, scope: "sub", fields });
+    const rows = result.data.users as Record<string, unknown>[] | undefined;
+    const user = (rows?.[0] ?? result.data.user) as Record<string, unknown>;
+    assert.equal(user.memberOf, undefined);
+    assert.deepEqual(user["memberOf;range=0-*"], [`${dn.slice(0, 800)}… (truncated, ${dn.length} chars total)`]);
+    assert.equal(directory.requests.length, 1);
   });
 }
 

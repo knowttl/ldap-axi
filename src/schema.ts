@@ -23,7 +23,6 @@ export function selectFields(schema: CommandSchema, requested: readonly string[]
   const unknown = names.filter(name => !known.has(name));
   if (unknown.length) {
     const hints = unknown.flatMap(name => {
-      if (name.toLowerCase() === "memberof") return ["Use `ldap-axi user groups <identifier-or-dn>` for memberships or --attributes memberOf for raw values"];
       return schema.fields.filter(field => field.attributes.some(attribute => attribute.toLowerCase() === name.toLowerCase()))
         .map(field => `${name} is a directory attribute; use --fields ${field.name}`);
     });
@@ -135,11 +134,10 @@ export function userListSchema(flavor: ServerFlavor): CommandSchema {
       ? [{ name: "sam", attributes: ["sAMAccountName"] }, { name: "upn", attributes: ["userPrincipalName"] }, { name: "name", attributes: ["cn"] },
         { name: "dn", attributes: [] }, { name: "enabled", attributes: ["userAccountControl"] }, { name: "locked", attributes: ["msDS-User-Account-Control-Computed"] },
         { name: "last_logon", attributes: ["lastLogonTimestamp"] }, { name: "object_sid", attributes: ["objectSid"] }, { name: "when_created", attributes: ["whenCreated"] },
-        { name: "description", attributes: ["description"] }, { name: "display_name", attributes: ["displayName"] }]
+        { name: "description", attributes: ["description"] }, { name: "display_name", attributes: ["displayName"] }, { name: "memberOf", attributes: ["memberOf"] }]
       : [{ name: "uid", attributes: ["uid"] }, { name: "name", attributes: ["cn"] }, { name: "mail", attributes: ["mail"] },
         { name: "enabled", attributes: ["pwdAccountLockedTime"] }, { name: "locked", attributes: ["pwdAccountLockedTime"] }, { name: "account_state", attributes: ["pwdAccountLockedTime"] },
-        { name: "dn", attributes: [] }, { name: "entry_uuid", attributes: ["entryUUID"] }, { name: "when_created", attributes: ["createTimestamp"] },
-        { name: "description", attributes: ["description"] }, { name: "display_name", attributes: ["displayName"] }],
+        { name: "dn", attributes: [] }, { name: "entry_uuid", attributes: ["entryUUID"] }, { name: "when_created", attributes: ["createTimestamp"] }],
     defaultFields: ad ? ["sam", "name", "enabled", "last_logon"] : ["uid", "name", "mail", "enabled", "locked", "account_state"],
     flagAttributes: ad ? { locked: ["msDS-User-Account-Control-Computed"] } : { locked: ["pwdAccountLockedTime"] },
   };
@@ -158,7 +156,7 @@ export function userShowSchema(flavor: ServerFlavor): CommandSchema {
       { name: "uid_number", attributes: ["uidNumber"] }, { name: "gid_number", attributes: ["gidNumber"] }, { name: "home_directory", attributes: ["homeDirectory"] },
       { name: "login_shell", attributes: ["loginShell"] }, { name: "gecos", attributes: ["gecos"] }, { name: "entry_uuid", attributes: ["entryUUID"] },
       { name: "when_created", attributes: ["createTimestamp"] }, { name: "when_changed", attributes: ["modifyTimestamp"] }];
-  fields.push({ name: "description", attributes: ["description"] }, { name: "display_name", attributes: ["displayName"] });
+  if (ad) fields.push({ name: "description", attributes: ["description"] }, { name: "display_name", attributes: ["displayName"] }, { name: "memberOf", attributes: ["memberOf"] });
   return { summary: "Show one user by DN or identifier.", booleanFlags: [], valueFlags: ["fields", "attributes"], fields, defaultFields: fields.map(field => field.name) };
 }
 
