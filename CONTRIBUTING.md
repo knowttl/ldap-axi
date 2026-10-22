@@ -25,6 +25,7 @@ See the [skill design](docs/design/v1.md#172-session-hook-and-skill) for the gen
 
 The optional `npm run test:local-directory` suite requires Linux and Docker and provisions disposable Samba AD and OpenLDAP/MIT KDC directories.
 It is separate from `npm run verify`.
+For no-mistakes pipeline validation, follow the restrictions in [the pipeline settings](.no-mistakes.yaml).
 Real-directory checks require explicit opt-in and read-only credentials under the [live-test boundaries](docs/design/v1.md#19-safe-live-test-boundaries).
 Never use real directory content, credentials, DNs, SIDs, GUIDs, tickets, or captured tokens in fixtures, logs, issues, or pull requests.
 
