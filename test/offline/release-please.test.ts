@@ -141,7 +141,7 @@ test("native release promotion depends on staged package consumption", async () 
   assert.deepEqual(jobs["release-publish"].needs, ["release-plan", "release-consume"]);
   for (const [name, job] of Object.entries(jobs)) {
     if (name === "release-plan") continue;
-    const checkout = job.steps.find(step => step.uses === "actions/checkout@v4");
+    const checkout = job.steps.find(step => step.uses === "actions/checkout@v7");
     assert.equal(checkout?.with?.ref, "${{ needs.release-plan.outputs.sha }}", name);
     if (name === "linux-build-test" || name === "windows-build-test") assert.equal(job.if, "needs.release-plan.outputs.active == 'true'");
   }
