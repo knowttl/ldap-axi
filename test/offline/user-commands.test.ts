@@ -77,6 +77,22 @@ for (const [command, run, fields] of [
         assert.equal(user.description_value_count, 51);
         assert.equal(user.description_values_truncated, true);
       });
+      for (const range of ["0-1499", "0-*"]) {
+        test(`${flavor} user ${command} preserves bounded ranged descriptions ${range} with raw attributes ${String(attributes)}`, async () => {
+          const descriptions = ["x".repeat(1000), ...Array.from({ length: 50 }, (_, index) => `Description ${index}`)];
+          const key = `description;range=${range}`;
+          const alice = entry("CN=alice,DC=example,DC=test", { description: [], [key]: descriptions });
+          const directory = new RecordedDirectory(flavor, [byFilter([], [alice])]);
+          const result = await run(directory, { base: BASE, flavor, identifier: "alice", pageSize: 500, all: true, scope: "sub", fields, attributes });
+          const rows = result.data.users as Record<string, unknown>[] | undefined;
+          const user = (rows?.[0] ?? result.data.user) as Record<string, unknown>;
+          assert.deepEqual(user[key], [`${"x".repeat(800)}… (truncated, 1000 chars total)`, ...descriptions.slice(1, 50)]);
+          assert.equal(user[`${key}_value_count`], 51);
+          assert.equal(user[`${key}_values_truncated`], true);
+          assert.deepEqual(user.description ?? [], []);
+          assert.equal(directory.requests.length, 1);
+        });
+      }
     }
   }
 }
