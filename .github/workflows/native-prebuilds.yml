@@ -77,7 +77,7 @@ jobs:
           mkdir -p release
           cp prebuilds/linux-glibc-x64/kerberos.node release/kerberos-linux-glibc-x64.node
           cp prebuilds/linux-glibc-x64/kerberos.node.sha256 release/kerberos-linux-glibc-x64.node.sha256
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: linux-glibc-x64
           path: release/*
@@ -123,7 +123,7 @@ jobs:
           mkdir -p release
           cp prebuilds/win32-x64/kerberos.node release/kerberos-win32-x64.node
           cp prebuilds/win32-x64/kerberos.node.sha256 release/kerberos-win32-x64.node.sha256
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: win32-x64
           path: release/*
@@ -174,7 +174,7 @@ jobs:
           RELEASE_TAG: ${{ needs.release-plan.outputs.tag }}
           RELEASE_SHA: ${{ needs.release-plan.outputs.sha }}
         run: node scripts/native-release.mjs stage
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: npm-package
           path: package/*.tgz
