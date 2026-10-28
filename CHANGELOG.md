@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.1](https://github.com/knowttl/ldap-axi/compare/v0.3.0...v0.3.1) (2026-10-28)
+
+
+### Bug Fixes
+
+* correct README references and GSSAPI help defaults ([#40](https://github.com/knowttl/ldap-axi/issues/40)) ([a424f7f](https://github.com/knowttl/ldap-axi/commit/a424f7fb9492a0f71e18d8c7df716e065ec88ace))
+* guide agents directly to bounded directory investigations ([#43](https://github.com/knowttl/ldap-axi/issues/43)) ([a2de501](https://github.com/knowttl/ldap-axi/commit/a2de5015814481b03b78b617be1a33dc0fdc5a0f))
+
 ## [0.3.0](https://github.com/knowttl/ldap-axi/compare/v0.2.0...v0.3.0) (2026-10-22)
 
 
