@@ -2,7 +2,7 @@
 export const LDAP_AXI_DESCRIPTION = "Read Active Directory and LDAPv3 directories safely with ldap-axi (read-only)";
 
 export const HOME_GUIDANCE = [
-  "Run `ldap-axi entry search --help` to explore a directory safely",
+  "Use the compact investigation guide in the ldap-axi skill; reserve --help for a failed or unfamiliar command",
 ] as const;
 
 /** The implemented command surface, in the order the home view lists it (docs/design/v1.md §2.1). */

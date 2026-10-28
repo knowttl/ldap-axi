@@ -53,7 +53,7 @@ ldap-axi setup --app opencode --hook
 ```
 
 Each injects the offline home view without connecting or granting directory permissions.
-For on-demand guidance and the full command reference, install the [skill](skills/ldap-axi/SKILL.md):
+For the compact [investigation guide](skills/ldap-axi/SKILL.md), install the skill:
 
 ```sh
 npx skills add knowttl/ldap-axi --skill ldap-axi
