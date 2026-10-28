@@ -26,8 +26,10 @@ test("generated project skills stay synchronized", async () => {
 test("skill command discovery agrees with the offline home and executable help", async () => {
   const home = homeView("/synthetic/bin/ldap-axi", "ldaps://synthetic.example.test", true);
   const generated = createSkillMarkdown();
-  const commands = [...generated.matchAll(/^- `npx -y @knowttl\/ldap-axi (.+) --help`$/gm)].map(match => match[1]);
-  assert.deepEqual(commands, home.data.commands);
+  const commands = home.data.commands as string[];
+  const examples = [...generated.matchAll(/`npx -y @knowttl\/ldap-axi ([^`]+)`/g)].map(match => match[1]);
+  assert.ok(examples.length > 0);
+  for (const example of examples) assert.ok(commands.some(command => example === command || example.startsWith(`${command} `)), example);
   for (const command of commands) {
     const result = await run([...command.split(" "), "--help"], {
       openDirectory: async () => { throw new Error("command discovery must not connect"); },
@@ -36,7 +38,7 @@ test("skill command discovery agrees with the offline home and executable help",
   }
   for (const line of HOME_GUIDANCE) assert.ok(generated.includes(line.replaceAll("`ldap-axi", "`npx -y @knowttl/ldap-axi")));
   assert.ok(generated.includes(String(home.data.description)));
-  assert.doesNotMatch(generated, /synthetic|configured for simple auth|^bin:|^credentials:|^server:/m);
+  assert.doesNotMatch(generated, /configured for simple auth|^bin:|^credentials:|^server:/m);
 });
 
 test("installed skill links resolve outside the repository", async () => {

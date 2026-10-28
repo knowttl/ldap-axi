@@ -4,70 +4,102 @@ description: "Read Active Directory and LDAPv3 directories safely with ldap-axi 
 user-invocable: false
 ---
 
-# ldap-axi
+# ldap-axi investigation guide
 
 Read Active Directory and LDAPv3 directories safely with ldap-axi (read-only).
-The CLI is strictly read-only and never exposes a directory mutation operation.
+Start with the relevant read below; no preliminary help call is needed.
+Use the compact investigation guide in the ldap-axi skill; reserve --help for a failed or unfamiliar command
+Examples use a preconfigured synthetic profile named `work`; select your approved profile instead.
+With a global install, replace `npx -y @knowttl/ldap-axi` with `ldap-axi`.
 
-## Workflow
+## Investigation reads
 
-Run `npx -y @knowttl/ldap-axi` for the current configured connection summary.
-Run `npx -y @knowttl/ldap-axi entry search --help` to explore a directory safely
-Use `npx -y @knowttl/ldap-axi user list`, `npx -y @knowttl/ldap-axi group list`, or `npx -y @knowttl/ldap-axi computer list` for typed reads.
-Computer reads use AD machine accounts or a stated generic LDAPv3 device fallback; use `npx -y @knowttl/ldap-axi computer show <identifier-or-dn>` for details.
-Run `npx -y @knowttl/ldap-axi server` for advertised rootDSE capabilities, naming contexts, limits, and detected or overridden flavor.
-Run `npx -y @knowttl/ldap-axi auth status` to report the selected authentication, or `npx -y @knowttl/ldap-axi auth status --offline` to report it without binding.
+Each line is a complete example.
+List selectors `--name`, AD-only `--sam`/`--upn`, and LDAPv3-only `--uid` accept patterns; quote wildcard patterns in the shell.
+Show and membership commands accept an exact identifier or DN, not a wildcard.
 
-## Command discovery
+| Task | Example |
+| --- | --- |
+| Find computers | `npx -y @knowttl/ldap-axi computer list --profile work --name 'workstation*' --fields name,dn --limit 10` |
+| Inspect one computer | `npx -y @knowttl/ldap-axi computer show workstation --profile work --fields name,dn --attributes description` |
+| Find users | `npx -y @knowttl/ldap-axi user list --profile work --name 'Alice*' --fields name,dn --limit 10` |
+| Inspect one user | `npx -y @knowttl/ldap-axi user show alice --profile work --fields name,dn,account_state` |
+| Resolve a user's groups | `npx -y @knowttl/ldap-axi user groups alice --profile work --fields name,dn --max-rows 25` |
+| Find groups | `npx -y @knowttl/ldap-axi group list --profile work --name 'Engineering*' --fields name,dn --limit 10` |
+| Inspect one group | `npx -y @knowttl/ldap-axi group show engineering --profile work --fields name,dn,member_count` |
+| Resolve direct members | `npx -y @knowttl/ldap-axi group members engineering --profile work --fields name,dn --max-rows 25` |
+| Resolve nested members (AD only) | `npx -y @knowttl/ldap-axi group members engineering --profile work --nested --fields name,dn --max-rows 25` |
+| Search arbitrary entries | `npx -y @knowttl/ldap-axi entry search --profile work --filter '(objectClass=person)' --attributes cn,mail --max-rows 25` |
+| Read a known DN | `npx -y @knowttl/ldap-axi entry show CN=Alice,DC=example,DC=test --profile work --attributes cn,mail` |
+| Read server capabilities/flavor | `npx -y @knowttl/ldap-axi server --profile work` |
+| Diagnose authentication | `npx -y @knowttl/ldap-axi auth status --profile work` |
+| Inspect auth without binding | `npx -y @knowttl/ldap-axi auth status --profile work --offline` |
 
-These implemented commands provide flags, defaults, and examples without connecting:
+AD user identifiers are sAMAccountName or UPN; LDAPv3 uses uid.
+Groups use cn or AD sAMAccountName; computers use cn or AD sAMAccountName (include its trailing dollar sign when supplied).
+LDAPv3 computer reads use objectClass=device.
+User lists also support `--disabled`, `--enabled`, and `--locked`; LDAPv3 lock state is a ppolicy candidate, not proof of a current lock.
 
-- `npx -y @knowttl/ldap-axi entry search --help`
-- `npx -y @knowttl/ldap-axi entry show --help`
-- `npx -y @knowttl/ldap-axi user list --help`
-- `npx -y @knowttl/ldap-axi user show --help`
-- `npx -y @knowttl/ldap-axi user groups --help`
-- `npx -y @knowttl/ldap-axi group list --help`
-- `npx -y @knowttl/ldap-axi group show --help`
-- `npx -y @knowttl/ldap-axi group members --help`
-- `npx -y @knowttl/ldap-axi computer list --help`
-- `npx -y @knowttl/ldap-axi computer show --help`
-- `npx -y @knowttl/ldap-axi auth status --help`
-- `npx -y @knowttl/ldap-axi server --help`
-- `npx -y @knowttl/ldap-axi profile list --help`
-- `npx -y @knowttl/ldap-axi config path --help`
-- `npx -y @knowttl/ldap-axi setup --help`
+## One invocation instead of hand-written loops
 
-## Authentication
+Use show directly for known identifiers; no list-first lookup is needed.
+Replace list-then-show loops with supported `--fields` or raw `--attributes` on the list itself.
+Start with name,dn; AD computer lists also offer dns_host_name,enabled, AD user lists sam,upn,enabled,locked,last_logon, and LDAPv3 user lists uid,mail,account_state.
+Computer operating_system and operating_system_version are show fields; request raw operatingSystem,operatingSystemVersion on lists if needed.
+User groups handles lookup and membership resolution: AD prefers transitive tokenGroups including the primary group; inspect method/transitive because fallback can be direct.
+AD user groups also accepts `--nested` for transitive fallback expansion.
+Group members `--nested` expands AD membership; LDAPv3 nesting is unsupported.
+AD group members omits primary-group-only members and reports partial results; group show member_count has the same limitation and a 10,000-value cap.
+Membership defaults to at most 1000 AD or 500 LDAPv3 rows; set `--max-rows` explicitly.
+Reads finish synchronously; there is no start/poll workflow or general batch-show command.
 
-Authentication defaults to `auto` and attempts one ambient GSSAPI or Windows SSPI Negotiate context after the selected transport is ready, using TLS channel binding when TLS is present.
-A provider, runtime, credential, target, context, TLS, or LDAP failure is terminal and never silently selects the configured password.
-Use `--auth simple` for the existing LDAP simple bind and to preserve a configured service identity.
-Simple authentication never enters the GSSAPI protected path.
-Use `--anonymous` only when anonymous access is explicitly intended.
-Credentials belong in `LDAP_AXI_BIND_DN` and `LDAP_AXI_BIND_PASSWORD` or a version 1 profile with `bindDn` and a `bindPassword` SecretRef, never argv.
-Profiles live in the platform config directory's `ldap-axi/config.json`; use `npx -y @knowttl/ldap-axi config path` and `npx -y @knowttl/ldap-axi profile list` to discover them.
-SecretRefs use `{env: NAME}` or `{file: absolutePath}`; password files must be private on POSIX, and Windows ACL permissions are reported unchecked because runtime platform tools are forbidden.
+## Keep output bounded
 
-The URL scheme selects the GSSAPI transport and there is no fallback between them.
-Verified LDAPS or StartTLS binds with TLS channel binding and no SASL security layer; plain `ldap://` binds with a mandatory confidentiality layer that wraps every post-bind LDAP message, and needs no `--insecure-plaintext`.
-`--tls-no-verify` is still refused for a TLS GSSAPI bind.
-Use `--tls-max-version 1.2` or the matching config setting only for verified LDAPS/StartTLS endpoints that require a TLS 1.2 cap.
-`--gssapi-protection` is accepted only when it names the layer the URL scheme already requires.
-Ambient authentication requires the optional native provider installed from a verified prebuild or supported source build.
-Every Linux native path, including a verified prebuild, requires compatible system GSSAPI/Kerberos runtime libraries.
-On Linux, libgssapi_krb5.so.2 must be discoverable by the dynamic loader.
-Never prepend a whole system library directory to LD_LIBRARY_PATH; use the support matrix's Kerberos-only shim when needed.
-Linux source fallback additionally needs Python, node-gyp, a C++ compiler, and Kerberos/GSS development headers; Windows source fallback needs node-gyp, MSVC, and the Windows SDK.
-Provider or runtime unavailability is reported as `GSSAPI_UNAVAILABLE`; explicit `--auth simple` remains usable and does not load the provider.
-Native GSSAPI is unavailable on Linux musl, Linux arm64, Windows arm64, and macOS; explicit simple authentication remains available.
-See the [support matrix](https://github.com/knowttl/ldap-axi/blob/main/docs/support-matrix.md) for installation requirements and verified platform status.
+Typed lists default to one page; `--limit N` reads across pages up to N rows.
+Alternatively use `--all --max-rows N` on lists or entry search; `--all` requires a bound.
+Without `--all`, `--max-rows` alone does not request later list/search pages.
+`--page-size` sets LDAP page size (1..1000; defaults AD 1000, LDAPv3 500 unless configured), not total output.
+Typed reads use `--fields`; raw entry reads use `--attributes` (default objectClass,cn), not `--fields` or `--limit`.
+Attribute wildcards and password attributes are forbidden.
+Use `--base DN`, list/search `--scope base|one|sub`, and narrow `--filter` values to constrain searches.
+Filters use RFC 4515 syntax; escape literal metacharacters rather than interpolating untrusted values.
+TOON data and structured errors appear on stdout.
+Check count, partial, incomplete, stop_reason, unresolved, method, and transitive before claiming completeness; exit 0 can contain partial results.
+Referrals are reported without being chased; resumable cursors are unsupported.
+Empty reads cannot distinguish absent entries from entries hidden by access control.
 
-Because `auto` may use the logged-in identity, operators who require the configured simple-bind identity must select `--auth simple` before running a command.
-Offline checks do not prove ticket acquisition, AD acceptance, Windows behavior, channel-binding agreement, server security-layer acceptance, protected-transport interoperability, or bound identity.
+## Safety and authentication
 
-## Safety
+Directory read allowlist: entry search, entry show, user list, user show, user groups, group list, group show, group members, computer list, computer show, server, auth status.
+Local reads: home (no arguments), profile list, config path, and auth status with `--offline`.
+No directory mutation commands or flags unlock writes.
+Exclude setup from investigation allowlists: it writes selected local agent integrations unless `--check` is used.
+Each connected invocation performs one authentication exchange; failed AD binds can increment lockout counters.
+Do not retry authentication blindly.
+Default `--auth auto` selects ambient Kerberos/SSPI, never password fallback; use `--auth simple` when the approved identity is the configured simple-bind account.
+Credentials belong in environment variables or private file SecretRefs, never argv; anonymous access requires explicit `--anonymous`.
+Verified LDAPS/StartTLS uses channel binding and no SASL layer; plain LDAP GSSAPI requires confidentiality, with no transport fallback.
+Keep TLS verification enabled.
+See [configuration](https://github.com/knowttl/ldap-axi/blob/main/docs/configuration.md) and the [support matrix](https://github.com/knowttl/ldap-axi/blob/main/docs/support-matrix.md) for credential and native-provider setup.
 
-Do not use passwords, tickets, keytabs, cache contents, raw tokens, or directory captures on the command line or in fixtures.
-ldap-axi does not shell out to platform tools and does not retry authentication.
-All reads use bounded paging, preserve TLS verification, and report partial results honestly.
+## Failures and help
+
+Use help to recover from a failed or unfamiliar command, not to begin an investigation.
+Top-level `--help` returns the command overview and authentication notes; group help (for example computer) lists subcommands; leaf help gives syntax, flags, fields/defaults, and examples (entry show has a shorter synopsis).
+Help never connects; the [command reference](https://github.com/knowttl/ldap-axi/blob/main/docs/commands.md) is generated from leaf help.
+Exit codes: 0 success, 2 usage/validation (including CREDENTIAL_INCOMPLETE), 1 other failures.
+
+| Code | Next action |
+| --- | --- |
+| VALIDATION_ERROR | Correct the named flag, field, filter, or argument; ambiguous identifiers require a DN. |
+| NOT_FOUND | Check identifier, base, flavor, and read visibility. |
+| PROFILE_NOT_FOUND / PROFILE_AMBIGUOUS | Select a configured profile explicitly. |
+| CONFIG_INVALID / CONFIG_INSECURE / CREDENTIAL_INCOMPLETE / AUTH_REQUIRED | Repair config, private-file permissions, or the complete approved credential pair before binding. |
+| GSSAPI_UNAVAILABLE / GSSAPI_CREDENTIAL_UNAVAILABLE | Check provider/runtime installation or ambient credential availability. |
+| GSSAPI_PREPARATION_FAILED / GSSAPI_NEGOTIATION_FAILED | Inspect the reported target, credential, or protection problem; no fallback occurred. |
+| AUTH_FAILED / ACCOUNT_LOCKED / ACCOUNT_DISABLED / ACCOUNT_EXPIRED / PASSWORD_EXPIRED | Stop and escalate the account/credential problem; do not probe alternatives. |
+| TLS_UNTRUSTED / TLS_REQUIRED / STRONGER_AUTH_REQUIRED | Repair trust or approved encrypted transport; do not disable verification. |
+| INSUFFICIENT_ACCESS | Request approved read access or narrow the query. |
+| UNSUPPORTED_BY_SERVER | Remove the flavor-specific option; generic nesting is unsupported. |
+| SERVER_LIMIT / OPERATION_TIMEOUT | Narrow base/filter or lower the bound; inspect retained partial data. |
+| SERVER_UNREACHABLE / SERVER_BUSY | Check endpoint availability before another invocation. |
