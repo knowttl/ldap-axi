@@ -1,5 +1,7 @@
 # ldap-axi support matrix
 
+Contents: [Commands](#command-surface) · [Authentication](#authentication) · [Platforms](#platforms) · [Native installation](#native-provider-installation-and-loading) · [Linux libraries](#linux-runtime-libraries-and-the-nixwsl-hazard) · [Library surface](#library-surface) · [Provenance](#release-and-provenance) · [Evidence](#what-is-proved-and-what-is-not).
+
 What ships, what is planned, where it runs, and what has actually been proved.
 This file is the single status surface for the project; `README.md` states the invariants and links here.
 `docs/design/v1.md` remains the authority for why each row is what it is.

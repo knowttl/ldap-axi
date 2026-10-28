@@ -37,7 +37,7 @@ Authentication failures are terminal with no password fallback or retry.
 ## Configuration and file permissions
 
 Configuration lives at `%APPDATA%\ldap-axi\config.json`; use `config path` to resolve it.
-Follow the [README profiles](../README.md#quickstart) for ambient or simple authentication.
+Follow the [configuration profiles](configuration.md#profiles) for ambient or simple authentication.
 File SecretRefs require an absolute drive path.
 Restrict config directories and password files with Windows ACLs to the owning account.
 Password-file permissions are reported as `unchecked (windows)`: POSIX mode checks cannot establish Windows ACL security.
