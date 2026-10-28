@@ -145,6 +145,7 @@ Data and structured errors (`error`, `code`, optional `help`) use TOON on stdout
 Lists read one page by default; `--all --max-rows 2000` requests a longer bounded read.
 Inspect `count`, `partial`, `incomplete`, `stop_reason`, and membership `method`/`transitive` before treating results as complete.
 Referrals are reported without being chased; resumable cursors and `--full` are unsupported.
+Long values and multivalued attributes are truncated with size metadata; see the [value limits](docs/design/v1.md#135-truncation).
 See the [command reference](docs/commands.md) for examples and command-specific limits.
 
 | Exit | Meaning |
