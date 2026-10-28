@@ -102,7 +102,7 @@ The [README environment table](../README.md#configuration) lists runtime variabl
 | `--tls-max-version 1.2` | `tlsMaxVersion` | Optional TLS 1.2 cap; otherwise runtime maximum |
 | `--insecure-plaintext` | None | Permit unprotected LDAP; default false |
 | `--anonymous` | None | Explicit anonymous access; default false |
-| `--gssapi-service` | `gssapiService` | Default `ldap@URL-host` |
+| `--gssapi-service` | `gssapiService` | Default `ldap@URL-host` on Linux, `ldap/URL-host` on Windows |
 | `--gssapi-protection` | `gssapiProtection` | Assert the scheme-required `none` or `confidentiality` layer |
 | `--page-size` | `pageSize` | 1..1000; AD/AD LDS default 1000, otherwise 500 |
 | None | `flavor` | `ad`, `adlds`, `ldapv3`; otherwise detection |

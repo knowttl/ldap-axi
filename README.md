@@ -2,7 +2,7 @@
 
 Read Active Directory and LDAPv3 directories from the shell
 
-[![npm](https://img.shields.io/npm/v/%40knowttl%2Fldap-axi)](https://www.npmjs.com/package/@knowttl/ldap-axi) [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE) [![Node](https://img.shields.io/node/v/%40knowttl%2Fldap-axi)](https://nodejs.org/) [![Release provenance](https://img.shields.io/badge/release-attested-blue)](docs/support-matrix.md#release-and-provenance) [![AXI](https://img.shields.io/badge/AXI-TOON-blue)](https://github.com/kunchenguid/axi)
+[![npm](https://img.shields.io/npm/v/%40knowttl%2Fldap-axi)](https://www.npmjs.com/package/@knowttl/ldap-axi) [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE) [![Node](https://img.shields.io/node/v/%40knowttl%2Fldap-axi)](https://nodejs.org/) [![npm provenance](https://img.shields.io/npm/provenance/%40knowttl%2Fldap-axi)](https://www.npmjs.com/package/@knowttl/ldap-axi#provenance) [![AXI](https://img.shields.io/badge/AXI-TOON-blue)](https://github.com/kunchenguid/axi)
 
 [Why](#why-this-exists) · [Quickstart](#quickstart) · [Agents](#use-with-your-agent) · [Coverage](#what-it-covers) · [Safety](#safety) · [Configuration](#configuration) · [Output](#output-and-exit-codes) · [Troubleshooting](#troubleshooting) · [Contributing](#contributing) · [Security](#security) · [License](#license)
 
@@ -123,7 +123,7 @@ See [configuration](docs/configuration.md) for flags, profile keys, precedence, 
 | `LDAP_AXI_CA_FILE` | Additional CA file; profile or Node trust roots |
 | `LDAP_AXI_TLS_MAX_VERSION` | Optional `1.2` cap; profile or runtime maximum |
 | `LDAP_AXI_PAGE_SIZE` | 1..1000; profile or 1000 for AD/AD LDS, 500 otherwise |
-| `LDAP_AXI_GSSAPI_SERVICE` | Service principal; profile or `ldap@URL-host` |
+| `LDAP_AXI_GSSAPI_SERVICE` | Service principal; profile or `ldap@URL-host` on Linux, `ldap/URL-host` on Windows |
 | `LDAP_AXI_GSSAPI_PROTECTION` | Scheme-required layer assertion; profile or scheme selection |
 | `LDAP_AXI_BIND_DN`, `LDAP_AXI_BIND_PASSWORD` | Simple-bind identity and secret; no default identity |
 | `LDAP_AXI_CREDENTIALS_FILE` | Legacy detection path; config directory's `credentials.env`, rejected if found without config |
