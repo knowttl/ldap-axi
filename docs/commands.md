@@ -76,7 +76,7 @@ Flags:
   --anonymous  bind anonymously (default: false)
   --profile  <name> select a saved profile (default: environment profile, defaultProfile, or sole saved profile)
   --auth  <auto|gssapi|simple> authentication selection (default: auto; environment or config overrides)
-  --gssapi-service  <service@fqdn> override the URL-derived GSSAPI service (default: ldap@URL-host; environment or config overrides)
+  --gssapi-service  <service@fqdn> override the URL-derived GSSAPI service (default: ldap@URL-host on Linux, ldap/URL-host on Windows; environment or config overrides)
   --gssapi-protection  <none|confidentiality> required GSSAPI protection; the URL scheme selects it (default: none over TLS, confidentiality over plain LDAP)
   --filter  <RFC4515> LDAP filter (default: (objectClass=*))
   --scope  <base|one|sub> search scope (default: sub)
@@ -126,7 +126,7 @@ Flags:
   --anonymous  bind anonymously (default: false)
   --profile  <name> select a saved profile (default: environment profile, defaultProfile, or sole saved profile)
   --auth  <auto|gssapi|simple> authentication selection (default: auto; environment or config overrides)
-  --gssapi-service  <service@fqdn> override the URL-derived GSSAPI service (default: ldap@URL-host; environment or config overrides)
+  --gssapi-service  <service@fqdn> override the URL-derived GSSAPI service (default: ldap@URL-host on Linux, ldap/URL-host on Windows; environment or config overrides)
   --gssapi-protection  <none|confidentiality> required GSSAPI protection; the URL scheme selects it (default: none over TLS, confidentiality over plain LDAP)
   --disabled  include disabled accounts (LDAPv3: permanent ppolicy locks)
   --enabled  include enabled accounts (LDAPv3: exclude permanent ppolicy locks)
@@ -172,7 +172,7 @@ Flags:
   --anonymous  bind anonymously (default: false)
   --profile  <name> select a saved profile (default: environment profile, defaultProfile, or sole saved profile)
   --auth  <auto|gssapi|simple> authentication selection (default: auto; environment or config overrides)
-  --gssapi-service  <service@fqdn> override the URL-derived GSSAPI service (default: ldap@URL-host; environment or config overrides)
+  --gssapi-service  <service@fqdn> override the URL-derived GSSAPI service (default: ldap@URL-host on Linux, ldap/URL-host on Windows; environment or config overrides)
   --gssapi-protection  <none|confidentiality> required GSSAPI protection; the URL scheme selects it (default: none over TLS, confidentiality over plain LDAP)
   --fields  <name,...> select output fields
   --attributes  <name,...> request and emit raw attributes
@@ -205,7 +205,7 @@ Flags:
   --anonymous  bind anonymously (default: false)
   --profile  <name> select a saved profile (default: environment profile, defaultProfile, or sole saved profile)
   --auth  <auto|gssapi|simple> authentication selection (default: auto; environment or config overrides)
-  --gssapi-service  <service@fqdn> override the URL-derived GSSAPI service (default: ldap@URL-host; environment or config overrides)
+  --gssapi-service  <service@fqdn> override the URL-derived GSSAPI service (default: ldap@URL-host on Linux, ldap/URL-host on Windows; environment or config overrides)
   --gssapi-protection  <none|confidentiality> required GSSAPI protection; the URL scheme selects it (default: none over TLS, confidentiality over plain LDAP)
   --nested  AD only: expand transitive membership
   --max-rows  <n> maximum output rows
@@ -239,7 +239,7 @@ Flags:
   --anonymous  bind anonymously (default: false)
   --profile  <name> select a saved profile (default: environment profile, defaultProfile, or sole saved profile)
   --auth  <auto|gssapi|simple> authentication selection (default: auto; environment or config overrides)
-  --gssapi-service  <service@fqdn> override the URL-derived GSSAPI service (default: ldap@URL-host; environment or config overrides)
+  --gssapi-service  <service@fqdn> override the URL-derived GSSAPI service (default: ldap@URL-host on Linux, ldap/URL-host on Windows; environment or config overrides)
   --gssapi-protection  <none|confidentiality> required GSSAPI protection; the URL scheme selects it (default: none over TLS, confidentiality over plain LDAP)
   --all  read all pages up to --max-rows or --limit
   --name  <pattern> match cn
@@ -279,7 +279,7 @@ Flags:
   --anonymous  bind anonymously (default: false)
   --profile  <name> select a saved profile (default: environment profile, defaultProfile, or sole saved profile)
   --auth  <auto|gssapi|simple> authentication selection (default: auto; environment or config overrides)
-  --gssapi-service  <service@fqdn> override the URL-derived GSSAPI service (default: ldap@URL-host; environment or config overrides)
+  --gssapi-service  <service@fqdn> override the URL-derived GSSAPI service (default: ldap@URL-host on Linux, ldap/URL-host on Windows; environment or config overrides)
   --gssapi-protection  <none|confidentiality> required GSSAPI protection; the URL scheme selects it (default: none over TLS, confidentiality over plain LDAP)
   --fields  <name,...> select output fields
   --attributes  <name,...> request and emit raw attributes
@@ -311,7 +311,7 @@ Flags:
   --anonymous  bind anonymously (default: false)
   --profile  <name> select a saved profile (default: environment profile, defaultProfile, or sole saved profile)
   --auth  <auto|gssapi|simple> authentication selection (default: auto; environment or config overrides)
-  --gssapi-service  <service@fqdn> override the URL-derived GSSAPI service (default: ldap@URL-host; environment or config overrides)
+  --gssapi-service  <service@fqdn> override the URL-derived GSSAPI service (default: ldap@URL-host on Linux, ldap/URL-host on Windows; environment or config overrides)
   --gssapi-protection  <none|confidentiality> required GSSAPI protection; the URL scheme selects it (default: none over TLS, confidentiality over plain LDAP)
   --nested  AD only: expand transitive membership
   --max-rows  <n> maximum output rows
@@ -345,7 +345,7 @@ Flags:
   --anonymous  bind anonymously (default: false)
   --profile  <name> select a saved profile (default: environment profile, defaultProfile, or sole saved profile)
   --auth  <auto|gssapi|simple> authentication selection (default: auto; environment or config overrides)
-  --gssapi-service  <service@fqdn> override the URL-derived GSSAPI service (default: ldap@URL-host; environment or config overrides)
+  --gssapi-service  <service@fqdn> override the URL-derived GSSAPI service (default: ldap@URL-host on Linux, ldap/URL-host on Windows; environment or config overrides)
   --gssapi-protection  <none|confidentiality> required GSSAPI protection; the URL scheme selects it (default: none over TLS, confidentiality over plain LDAP)
   --all  read all pages up to --max-rows or --limit
   --name  <pattern> match cn
@@ -385,7 +385,7 @@ Flags:
   --anonymous  bind anonymously (default: false)
   --profile  <name> select a saved profile (default: environment profile, defaultProfile, or sole saved profile)
   --auth  <auto|gssapi|simple> authentication selection (default: auto; environment or config overrides)
-  --gssapi-service  <service@fqdn> override the URL-derived GSSAPI service (default: ldap@URL-host; environment or config overrides)
+  --gssapi-service  <service@fqdn> override the URL-derived GSSAPI service (default: ldap@URL-host on Linux, ldap/URL-host on Windows; environment or config overrides)
   --gssapi-protection  <none|confidentiality> required GSSAPI protection; the URL scheme selects it (default: none over TLS, confidentiality over plain LDAP)
   --fields  <name,...> select output fields
   --attributes  <name,...> request and emit raw attributes
@@ -417,7 +417,7 @@ Flags:
   --anonymous  bind anonymously (default: false)
   --profile  <name> select a saved profile (default: environment profile, defaultProfile, or sole saved profile)
   --auth  <auto|gssapi|simple> authentication selection (default: auto; environment or config overrides)
-  --gssapi-service  <service@fqdn> override the URL-derived GSSAPI service (default: ldap@URL-host; environment or config overrides)
+  --gssapi-service  <service@fqdn> override the URL-derived GSSAPI service (default: ldap@URL-host on Linux, ldap/URL-host on Windows; environment or config overrides)
   --gssapi-protection  <none|confidentiality> required GSSAPI protection; the URL scheme selects it (default: none over TLS, confidentiality over plain LDAP)
   --offline  report authentication selection without connecting or binding (default: false)
 Defaults: one bind against the configured URL, and the server-resolved identity when the server advertises RFC 4532 Who Am I.
@@ -446,7 +446,7 @@ Flags:
   --anonymous  bind anonymously (default: false)
   --profile  <name> select a saved profile (default: environment profile, defaultProfile, or sole saved profile)
   --auth  <auto|gssapi|simple> authentication selection (default: auto; environment or config overrides)
-  --gssapi-service  <service@fqdn> override the URL-derived GSSAPI service (default: ldap@URL-host; environment or config overrides)
+  --gssapi-service  <service@fqdn> override the URL-derived GSSAPI service (default: ldap@URL-host on Linux, ldap/URL-host on Windows; environment or config overrides)
   --gssapi-protection  <none|confidentiality> required GSSAPI protection; the URL scheme selects it (default: none over TLS, confidentiality over plain LDAP)
 Defaults: one selected authentication exchange; no search base is required.
 Reports advertised facts only; absent optional attributes are omitted, and absent limit values are reported as not advertised.
