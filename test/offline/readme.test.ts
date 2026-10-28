@@ -6,12 +6,12 @@ import test from "node:test";
 import { run } from "../../src/cli.js";
 import { BASE, byFilter, entry, RecordedDirectory } from "../support/fixtures.js";
 
-const readme = (await readFile("README.md", "utf8")).replaceAll("\r\n", "\n");
-const profiles = [...readme.matchAll(/```json\n([\s\S]*?)\n```/g)].map(match => match[1]);
-const outputs = [...readme.matchAll(/```text\n([\s\S]*?)\n```/g)].map(match => `${match[1]}\n`);
+const guide = (await readFile("docs/configuration.md", "utf8")).replaceAll("\r\n", "\n");
+const profiles = [...guide.matchAll(/```json\n([\s\S]*?)\n```/g)].map(match => match[1]);
+const outputs = [...guide.matchAll(/```text\n([\s\S]*?)\n```/g)].map(match => `${match[1]}\n`);
 
 for (const [index, auth] of ["gssapi", "simple"].entries()) {
-  test(`README ${auth} profile supports offline diagnosis and a bounded read`, async () => {
+  test(`configuration guide ${auth} profile supports offline diagnosis and a bounded read`, async () => {
     const root = await mkdtemp(join(tmpdir(), "ldap-axi-readme-"));
     const config = join(root, "config.json");
     const previous = process.env.LDAP_AXI_BIND_PASSWORD;

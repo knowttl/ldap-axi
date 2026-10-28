@@ -2,6 +2,61 @@
 
 Generated from executable help by `npm run skill:generate`; do not edit by hand.
 
+Contents: [Command index](#command-index) · [Read examples and output](#read-examples-and-output).
+
+- [entry search](#entry-search)
+- [entry show](#entry-show)
+- [user list](#user-list)
+- [user show](#user-show)
+- [user groups](#user-groups)
+- [group list](#group-list)
+- [group show](#group-show)
+- [group members](#group-members)
+- [computer list](#computer-list)
+- [computer show](#computer-show)
+- [auth status](#auth-status)
+- [server](#server)
+- [profile list](#profile-list)
+- [config path](#config-path)
+- [setup](#setup)
+
+## Command index
+
+| Command | Help summary |
+| --- | --- |
+| [`entry search`](#entry-search) | Search directory entries. |
+| [`entry show`](#entry-show) | Defaults to objectClass,cn; attribute wildcards are forbidden. |
+| [`user list`](#user-list) | List user accounts. |
+| [`user show`](#user-show) | Show one user by DN or identifier. |
+| [`user groups`](#user-groups) | List the groups a user belongs to. |
+| [`group list`](#group-list) | List groups. |
+| [`group show`](#group-show) | Show one group by DN or identifier. |
+| [`group members`](#group-members) | List a group's members. |
+| [`computer list`](#computer-list) | List computers (AD machine accounts; LDAPv3 device fallback). |
+| [`computer show`](#computer-show) | Show one computer by DN or exact identifier (AD: sAMAccountName or cn; LDAPv3: cn, using objectClass=device). |
+| [`auth status`](#auth-status) | Reports the one selected authentication contract: credential provenance, native provider status, mechanism, SASL security layer, and TLS channel binding. |
+| [`server`](#server) | Report rootDSE capabilities and server flavor. |
+| [`profile list`](#profile-list) | List configured profile names, URLs and auth modes without resolving secrets. |
+| [`config path`](#config-path) | Show the config path without reading credentials. |
+| [`setup`](#setup) | Install or repair explicitly selected local agent integrations. No directory connection. |
+
+## Read examples and output
+
+With a configured profile, replace synthetic identifiers with entries from your directory:
+
+```sh
+ldap-axi group members engineering --profile work --fields name,dn --max-rows 25
+ldap-axi entry search --profile work --filter "(objectClass=person)" --attributes cn,mail --max-rows 25
+ldap-axi computer list --profile work --limit 10
+ldap-axi server --profile work
+```
+
+Lists read one page by default; use `--all --max-rows 2000` for a longer bounded read.
+Inspect `count`, `partial`, `incomplete`, `stop_reason`, and membership `method`/`transitive` before treating results as complete.
+Referrals are reported without being chased; resumable cursors are unsupported.
+Unknown flags fail before connecting.
+See [output and exit codes](../README.md#output-and-exit-codes) for the output contract.
+
 ## entry search
 
 ```text

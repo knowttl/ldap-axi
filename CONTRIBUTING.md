@@ -19,7 +19,7 @@ Run them before submitting a pull request.
 Do not add GitHub test CI or CI badges as a substitute for local verification.
 Existing native release automation is described in the [support matrix](docs/support-matrix.md#release-and-provenance).
 
-Regenerate both committed skill copies, the README command table, and `docs/commands.md` with `npm run skill:generate` after changing their source guidance or CLI help.
+Regenerate both committed skill copies, the README command-group table, and the full leaf reference in `docs/commands.md` with `npm run skill:generate` after changing their source guidance or CLI help.
 Run `npm run skill:check` to check all generated guidance for missing or stale output without rewriting it.
 See the [skill design](docs/design/v1.md#172-session-hook-and-skill) for the generation contract.
 
