@@ -1,6 +1,6 @@
 {
   "name": "@knowttl/ldap-axi",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Read Active Directory and LDAPv3 directories from the shell",
   "license": "MIT",
   "repository": {
