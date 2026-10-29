@@ -11,8 +11,8 @@ export function noAmbientCredential(platformName: NodeJS.Platform = process.plat
 // reaching here mean "no entries were retained": a page walk that retains entries handles those
 // codes itself, before an error ever reaches this function (§9.5, client.ts searchPages).
 function resultCode(error: unknown): number | undefined {
-  const code = (error as { code?: unknown }).code;
-  return typeof code === "number" ? code : undefined;
+  const code = (error as { code?: unknown } | null)?.code;
+  return typeof code === "number" && Number.isSafeInteger(code) && code >= 0 ? code : undefined;
 }
 function diagnosticMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -43,6 +43,19 @@ function translateBindFailure(message: string): CliError {
 }
 
 const NARROW_HELP = ["Narrow the filter, lower --max-rows, or scope the base more tightly"];
+// Fixed library class names keep diagnostics bounded without exposing arbitrary error names.
+const LDAP_ERROR_NAMES = new Set([
+  "AdminLimitExceededError", "AffectsMultipleDSAsError", "AliasDerefProblemError", "AliasProblemError",
+  "AlreadyExistsError", "AuthMethodNotSupportedError", "BusyError", "ConfidentialityRequiredError",
+  "ConstraintViolationError", "InappropriateAuthError", "InappropriateMatchingError", "InsufficientAccessError",
+  "InvalidCredentialsError", "InvalidDNSyntaxError", "InvalidSyntaxError", "IsLeafError", "LoopDetectError",
+  "MoreResultsToReturnError", "NamingViolationError", "NoObjectClassModsError", "NoResultError",
+  "NoSuchAttributeError", "NoSuchObjectError", "NotAllowedOnNonLeafError", "NotAllowedOnRDNError",
+  "ObjectClassViolationError", "OperationsError", "ProtocolError", "ResultsTooLargeError",
+  "SaslBindInProgressError", "SizeLimitExceededError", "StrongAuthRequiredError", "TimeLimitExceededError",
+  "TLSNotSupportedError", "TypeOrValueExistsError", "UnavailableCriticalExtensionError", "UnavailableError",
+  "UndefinedTypeError", "UnknownStatusCodeError", "UnwillingToPerformError",
+]);
 function translateResultCode(code: number): CliError {
   switch (code) {
     case 1: return new CliError("OPERATIONS_ERROR", "the server could not perform the operation (LDAP result code 1)", ["The request may have crossed a naming context or required a base-scope read; retry with the entry's DN"]);
@@ -76,7 +89,13 @@ export function translateLdapError(error: unknown): CliError {
   if (error instanceof CliError) return error;
   const message = diagnosticMessage(error);
   const code = resultCode(error);
-  if (code === 49) return translateBindFailure(message);
-  if (code !== undefined) return translateResultCode(code);
+  if (code !== undefined) {
+    const translated = code === 49 ? translateBindFailure(message) : translateResultCode(code);
+    // The class name is library-owned; error.name and server diagnostic prose may contain values.
+    const className = error instanceof Error ? error.constructor.name : undefined;
+    const name = className && LDAP_ERROR_NAMES.has(className) ? className : undefined;
+    translated.message += ` (LDAP result code ${code}${name ? `; ${name}` : ""})`;
+    return translated;
+  }
   return translateConnectionError(message);
 }

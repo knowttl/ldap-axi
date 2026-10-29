@@ -1,4 +1,5 @@
 import { CliError, first, unsupportedFlavorFlag, values, type Directory, type Entry, type Scope, type ServerFlavor } from "./core.js";
+import { decodeEntryAttribute } from "./directory/attributes.js";
 import { composeFilter } from "./directory/client.js";
 import { filterValue, wildcardValue } from "./directory/escape.js";
 import { resolveIdentity, type IdentityQuery } from "./directory/identity.js";
@@ -37,10 +38,10 @@ function computeGroupField(entry: Entry, name: string, ad: boolean): unknown {
     case "object_class": return values(entry, "objectClass");
     case "member_form": return membershipAttribute(entry, ad) === "memberUid" ? "uid" : undefined;
     case "entry_uuid": return first(entry, "entryUUID");
-    case "when_created": { const raw = first(entry, "whenCreated") ?? first(entry, "createTimestamp"); return raw === undefined ? undefined : decodeGeneralizedTime(raw); }
-    case "when_changed": { const raw = first(entry, "whenChanged") ?? first(entry, "modifyTimestamp"); return raw === undefined ? undefined : decodeGeneralizedTime(raw); }
-    case "object_sid": { const raw = first(entry, "objectSid"); return raw === undefined ? undefined : decodeSid(Buffer.from(raw, "base64")); }
-    case "object_guid": { const raw = first(entry, "objectGUID"); return raw === undefined ? undefined : decodeGuid(Buffer.from(raw, "base64")); }
+    case "when_created": return decodeEntryAttribute(entry, ["whenCreated", "createTimestamp"], decodeGeneralizedTime);
+    case "when_changed": return decodeEntryAttribute(entry, ["whenChanged", "modifyTimestamp"], decodeGeneralizedTime);
+    case "object_sid": return decodeEntryAttribute(entry, "objectSid", raw => decodeSid(Buffer.from(raw, "base64")));
+    case "object_guid": return decodeEntryAttribute(entry, "objectGUID", raw => decodeGuid(Buffer.from(raw, "base64")));
     case "group_type_raw": return groupTypeOf(entry)?.raw;
     case "group_type_unsigned": return groupTypeOf(entry)?.unsigned;
     case "group_scope": return groupTypeOf(entry)?.scope;

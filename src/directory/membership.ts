@@ -1,4 +1,5 @@
 import { CliError, first, values, type Directory, type Entry, type SearchRequest } from "../core.js";
+import { decodeEntryAttribute } from "./attributes.js";
 import { composeFilter } from "./client.js";
 import { binaryFilterValue } from "./escape.js";
 import { decodeSid, encodeSid } from "./sid.js";
@@ -70,9 +71,8 @@ export async function resolveSidMembers(directory: Directory, base: string, sids
     for await (const page of directory.searchPages({ base, filter, scope: "sub", attributes: [...new Set([...attributes, "objectSid"])], pageSize: Math.min(pageSize, chunk.length) })) {
       referrals.push(...(page.referrals ?? []));
       for (const entry of page.entries) {
-        const rawSid = first(entry, "objectSid");
-        if (!rawSid) continue;
-        try { found.set(decodeSid(Buffer.from(rawSid, "base64")), entry); } catch { /* malformed SID: leave unresolved below */ }
+        const sid = decodeEntryAttribute(entry, "objectSid", raw => decodeSid(Buffer.from(raw, "base64")));
+        if (sid !== undefined) found.set(sid, entry);
       }
       if (page.stopReason) { stopReason ??= page.stopReason; break; }
     }

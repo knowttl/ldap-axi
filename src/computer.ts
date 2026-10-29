@@ -1,4 +1,5 @@
 import { first, unsupportedFlavorFlag, type Directory, type Entry, type Scope, type ServerFlavor } from "./core.js";
+import { decodeEntryAttribute } from "./directory/attributes.js";
 import { composeFilter } from "./directory/client.js";
 import { filterValue, wildcardValue } from "./directory/escape.js";
 import { resolveIdentity } from "./directory/identity.js";
@@ -18,11 +19,11 @@ function computeField(entry: Entry, name: string, ad: boolean): unknown {
   switch (name) {
     case "dn": return entry.dn;
     case "enabled": { const raw = first(entry, "userAccountControl"); return raw === undefined ? undefined : (decodeUserAccountControl(raw).raw & 2) === 0; }
-    case "last_logon": { const raw = first(entry, "lastLogonTimestamp"); return raw === undefined ? undefined : decodeFiletime(raw); }
-    case "object_sid": { const raw = first(entry, "objectSid"); return raw === undefined ? undefined : decodeSid(Buffer.from(raw, "base64")); }
-    case "object_guid": { const raw = first(entry, "objectGUID"); return raw === undefined ? undefined : decodeGuid(Buffer.from(raw, "base64")); }
-    case "when_created": { const raw = first(entry, ad ? "whenCreated" : "createTimestamp"); return raw === undefined ? undefined : decodeGeneralizedTime(raw); }
-    case "when_changed": { const raw = first(entry, ad ? "whenChanged" : "modifyTimestamp"); return raw === undefined ? undefined : decodeGeneralizedTime(raw); }
+    case "last_logon": return decodeEntryAttribute(entry, "lastLogonTimestamp", decodeFiletime);
+    case "object_sid": return decodeEntryAttribute(entry, "objectSid", raw => decodeSid(Buffer.from(raw, "base64")));
+    case "object_guid": return decodeEntryAttribute(entry, "objectGUID", raw => decodeGuid(Buffer.from(raw, "base64")));
+    case "when_created": return decodeEntryAttribute(entry, ad ? "whenCreated" : "createTimestamp", decodeGeneralizedTime);
+    case "when_changed": return decodeEntryAttribute(entry, ad ? "whenChanged" : "modifyTimestamp", decodeGeneralizedTime);
     default: {
       const attribute = { sam: "sAMAccountName", name: "cn", dns_host_name: "dNSHostName", operating_system: "operatingSystem", operating_system_version: "operatingSystemVersion", description: "description", entry_uuid: "entryUUID" }[name];
       return attribute ? first(entry, attribute) : undefined;
