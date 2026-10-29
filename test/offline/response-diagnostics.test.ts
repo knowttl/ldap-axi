@@ -6,7 +6,7 @@ import { renderError } from "../../src/render.js";
 import { listUsers, showUser, userGroups } from "../../src/user.js";
 import { showGroup } from "../../src/group.js";
 import { showComputer } from "../../src/computer.js";
-import { BASE, byFilter, entry, RecordedDirectory } from "../support/fixtures.js";
+import { BASE, byDn, byFilter, DOMAIN_SID, entry, RecordedDirectory, sidBase64 } from "../support/fixtures.js";
 
 const PRIVATE_VALUE = "synthetic-private-value";
 for (const [error, code, number, name] of [
@@ -81,4 +81,28 @@ for (const attribute of ["tokenGroups", "objectSid"]) {
       return true;
     });
   });
+}
+
+for (const [method, attributes] of [
+  ["tokenGroups", { tokenGroups: [sidBase64(`${DOMAIN_SID}-513`)] }],
+  ["primaryGroupID", { objectSid: [sidBase64(`${DOMAIN_SID}-1104`)], primaryGroupID: ["513"] }],
+] as const) {
+  for (const [syntax, value] of [["malformed", PRIVATE_VALUE], ["empty", ""]]) {
+    test(`user groups rejects ${syntax} resolved group objectSid through ${method}`, async () => {
+      const user = entry(`cn=Synthetic,${BASE}`, attributes);
+      const group = entry(`cn=SyntheticGroup,${BASE}`, { objectSid: [value] });
+      const directory = new RecordedDirectory("ad", [byDn(user.dn, user), byFilter(["(objectSid="], [group])]);
+      await assert.rejects(() => userGroups(directory, { base: BASE, flavor: "ad", identifier: user.dn, pageSize: 500 }), error => {
+        const result = renderError(error);
+        assert.match(result.stdout, /code: PROTOCOL_ERROR/);
+        assert.ok(result.stdout.includes("objectSid"));
+        assert.ok(!result.stdout.includes(PRIVATE_VALUE));
+        assert.ok(!result.stdout.includes(user.dn));
+        assert.ok(!result.stdout.includes(group.dn));
+        assert.equal(result.exitCode, 1);
+        assert.equal(result.stderr, "");
+        return true;
+      });
+    });
+  }
 }
