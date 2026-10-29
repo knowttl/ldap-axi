@@ -1,4 +1,5 @@
 import { CliError, first, unsupportedFlavorFlag, values, type Directory, type Entry, type Scope, type ServerFlavor } from "./core.js";
+import { decodeAttribute, decodeEntryAttribute } from "./directory/attributes.js";
 import { composeFilter } from "./directory/client.js";
 import { filterValue, wildcardValue } from "./directory/escape.js";
 import { resolveIdentity, type IdentityQuery } from "./directory/identity.js";
@@ -17,7 +18,7 @@ import type { SecretRedactor } from "./secrets.js";
 const PERMANENT_PASSWORD_LOCK = "000001010000Z";
 
 function isPermanentPasswordLock(time: string | undefined): boolean {
-  return time !== undefined && decodeGeneralizedTime(time) === decodeGeneralizedTime(PERMANENT_PASSWORD_LOCK);
+  return time !== undefined && decodeAttribute("pwdAccountLockedTime", () => decodeGeneralizedTime(time)) === decodeGeneralizedTime(PERMANENT_PASSWORD_LOCK);
 }
 
 function userIdentityQuery(identifier: string, ad: boolean): IdentityQuery {
@@ -63,15 +64,15 @@ function computeUserField(entry: Entry, name: string): unknown {
     case "login_shell": return first(entry, "loginShell");
     case "gecos": return first(entry, "gecos");
     case "entry_uuid": return first(entry, "entryUUID");
-    case "when_created": { const raw = first(entry, "whenCreated") ?? first(entry, "createTimestamp"); return raw === undefined ? undefined : decodeGeneralizedTime(raw); }
-    case "when_changed": { const raw = first(entry, "whenChanged") ?? first(entry, "modifyTimestamp"); return raw === undefined ? undefined : decodeGeneralizedTime(raw); }
-    case "object_sid": { const raw = first(entry, "objectSid"); return raw === undefined ? undefined : decodeSid(Buffer.from(raw, "base64")); }
-    case "object_guid": { const raw = first(entry, "objectGUID"); return raw === undefined ? undefined : decodeGuid(Buffer.from(raw, "base64")); }
+    case "when_created": return decodeEntryAttribute(entry, ["whenCreated", "createTimestamp"], decodeGeneralizedTime);
+    case "when_changed": return decodeEntryAttribute(entry, ["whenChanged", "modifyTimestamp"], decodeGeneralizedTime);
+    case "object_sid": return decodeEntryAttribute(entry, "objectSid", raw => decodeSid(Buffer.from(raw, "base64")));
+    case "object_guid": return decodeEntryAttribute(entry, "objectGUID", raw => decodeGuid(Buffer.from(raw, "base64")));
     case "enabled": { const raw = first(entry, "userAccountControl"); return raw === undefined ? accountState(entry)?.enabled : (decodeUserAccountControl(raw).raw & UAC_ACCOUNTDISABLE_BIT) === 0; }
     case "locked": { const raw = first(entry, "msDS-User-Account-Control-Computed"); return raw === undefined ? (accountState(entry)?.locked_out === true ? true : undefined) : (decodeUserAccountControl(raw).raw & UAC_LOCKOUT_BIT) !== 0; }
-    case "last_logon": { const raw = first(entry, "lastLogonTimestamp"); return raw === undefined ? undefined : decodeFiletime(raw); }
-    case "password_last_set": { const raw = first(entry, "pwdLastSet"); return raw === undefined ? undefined : decodeFiletime(raw); }
-    case "account_expires": { const raw = first(entry, "accountExpires"); return raw === undefined ? undefined : decodeFiletime(raw); }
+    case "last_logon": return decodeEntryAttribute(entry, "lastLogonTimestamp", decodeFiletime);
+    case "password_last_set": return decodeEntryAttribute(entry, "pwdLastSet", decodeFiletime);
+    case "account_expires": return decodeEntryAttribute(entry, "accountExpires", decodeFiletime);
     case "account_state": return accountState(entry);
     default: return undefined;
   }
@@ -186,14 +187,14 @@ async function primaryGroup(directory: Directory, base: string, entry: Entry, pa
   const sid = first(entry, "objectSid");
   const primaryGroupId = first(entry, "primaryGroupID");
   if (sid && primaryGroupId) {
-    const domain = domainSid(decodeSid(Buffer.from(sid, "base64")));
+    const domain = domainSid(decodeAttribute("objectSid", () => decodeSid(Buffer.from(sid, "base64"))));
     if (domain) return resolveSidMembers(directory, base, [sidWithRid(domain, Number(primaryGroupId))], 1, pageSize, rowAttributes);
   }
   return { rows: [], unresolved: [], referrals: [], partial: true, stopReason: "primary_group_unavailable" };
 }
 
 async function adUserGroups(directory: Directory, base: string, entry: Entry, cap: number, pageSize: number, rowAttributes: readonly string[], nested: boolean): Promise<{ walk: MembershipWalk; method: string; transitive: boolean }> {
-  const tokenGroupSids = values(entry, "tokenGroups").map(base64 => decodeSid(Buffer.from(base64, "base64")));
+  const tokenGroupSids = values(entry, "tokenGroups").map(base64 => decodeAttribute("tokenGroups", () => decodeSid(Buffer.from(base64, "base64"))));
   if (tokenGroupSids.length > 0) return { walk: await resolveSidMembers(directory, base, tokenGroupSids, cap, pageSize, rowAttributes), method: "tokenGroups", transitive: true };
   const primary = await primaryGroup(directory, base, entry, pageSize, rowAttributes);
   const primaryCount = primary.rows.length + primary.unresolved.length;
