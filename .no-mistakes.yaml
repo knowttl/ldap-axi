@@ -1,5 +1,6 @@
 no_ci: true
 commands:
+  prepare: 'npm ci --ignore-scripts'
   test: npm test
   lint: npm run lint
 review:
