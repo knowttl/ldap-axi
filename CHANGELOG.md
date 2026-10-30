@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.2](https://github.com/knowttl/ldap-axi/compare/v0.3.1...v0.3.2) (2026-10-30)
+
+
+### Bug Fixes
+
+* **directory:** preserve LDAP failure diagnostics without exposing values ([#44](https://github.com/knowttl/ldap-axi/issues/44)) ([6ae6889](https://github.com/knowttl/ldap-axi/commit/6ae68895122cb31de17b9341d507fe99716b29f4))
+* install dependencies before pipeline validation ([#47](https://github.com/knowttl/ldap-axi/issues/47)) ([7c1bdca](https://github.com/knowttl/ldap-axi/commit/7c1bdcaf9836074a0e103ad807d17b4333008077))
+
 ## [0.3.1](https://github.com/knowttl/ldap-axi/compare/v0.3.0...v0.3.1) (2026-10-28)
 
 
