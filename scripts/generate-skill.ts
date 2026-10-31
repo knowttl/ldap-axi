@@ -5,11 +5,11 @@ import { run } from "../dist/src/cli.js";
 
 const args = process.argv.slice(2);
 if (args.length > 1 || (args.length === 1 && args[0] !== "--check")) {
-  console.error("Usage: node scripts/generate-skill.mjs [--check]");
+  console.error("Usage: node scripts/generate-skill.ts [--check]");
   process.exitCode = 2;
 } else {
   const skill = createSkillMarkdown();
-  const groups = {
+  const groups: Record<string, [string, string]> = {
     entry: ["Search and show arbitrary entries", "Read"],
     user: ["Read accounts and group membership", "Read"],
     group: ["Read groups and their members", "Read"],
@@ -66,7 +66,7 @@ if (args.length > 1 || (args.length === 1 && args[0] !== "--check")) {
     if (args[0] === "--check") {
       let current;
       try { current = await readFile(file, "utf8"); } catch (error) {
-        if (error.code !== "ENOENT") throw error;
+        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
       }
       if (current?.replaceAll("\r\n", "\n") !== generated) {
         console.error(`Stale generated guidance: ${path}. Run npm run skill:generate.`);

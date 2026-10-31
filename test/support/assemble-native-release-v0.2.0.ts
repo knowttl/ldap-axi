@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 
-async function replaceFile(path, bytes) {
+async function replaceFile(path: string, bytes: string | Uint8Array) {
   const temporaryPath = join(dirname(path), `.${basename(path)}.${randomUUID()}.tmp`);
   try {
     await writeFile(temporaryPath, bytes);
@@ -20,7 +20,7 @@ if (process.env.GITHUB_REF_NAME && process.env.GITHUB_REF_NAME !== `v${packageMa
   throw new Error(`tag ${process.env.GITHUB_REF_NAME} does not match package version ${packageManifest.version}`);
 }
 const targets = ["linux-glibc-x64", "win32-x64"];
-const artifacts = {};
+const artifacts: Record<string, { napi: number; patchLevel: number; sha256: string; bundled: boolean; asset: string }> = {};
 
 for (const target of targets) {
   const asset = `kerberos-${target}.node`;

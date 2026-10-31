@@ -57,7 +57,7 @@ test("installed skill links resolve outside the repository", async () => {
 async function generatorFixture(body: (root: string, invoke: (...args: string[]) => ReturnType<typeof spawnSync>) => Promise<void>): Promise<void> {
   const root = await mkdtemp(join(tmpdir(), "ldap-axi-skill-generator-"));
   try {
-    for (const path of ["scripts/generate-skill.mjs", "README.md"]) {
+    for (const path of ["scripts/generate-skill.ts", "README.md"]) {
       await mkdir(dirname(join(root, path)), { recursive: true });
       await copyFile(path, join(root, path));
     }
@@ -68,7 +68,7 @@ async function generatorFixture(body: (root: string, invoke: (...args: string[])
     const guard = `import net from 'node:net'; import tls from 'node:tls'; import { syncBuiltinESMExports } from 'node:module';
       const denied = () => { process.exit(99); }; net.Socket.prototype.connect = denied; tls.connect = denied; syncBuiltinESMExports();`;
     const invoke = (...args: string[]): ReturnType<typeof spawnSync> => spawnSync(process.execPath, [
-      "--import", `data:text/javascript,${encodeURIComponent(guard)}`, join(root, "scripts/generate-skill.mjs"), ...args,
+      "--import", `data:text/javascript,${encodeURIComponent(guard)}`, join(root, "scripts/generate-skill.ts"), ...args,
     ], {
       cwd: root, encoding: "utf8",
       env: { ...process.env, LDAP_AXI_URL: "ldaps://synthetic.example.test", LDAP_AXI_BIND_DN: "cn=synthetic", LDAP_AXI_BIND_PASSWORD: "synthetic-secret", LDAP_AXI_CONFIG: join(root, "missing-config.json") },
