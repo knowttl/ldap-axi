@@ -16,7 +16,7 @@ test("architecture lint admits release automation but rejects additional workflo
     for (const path of ["package-lock.json", "vendor/kerberos/package.json", "vendor/kerberos/UPSTREAM.md", "prebuilds", "test", ".github/workflows"]) {
       await cp(path, join(fixture, path), { recursive: true });
     }
-    const lint = () => execFileSync(process.execPath, [resolve("scripts/architecture-check.mjs")], { cwd: fixture, stdio: "pipe" });
+    const lint = () => execFileSync(process.execPath, [resolve("scripts/architecture-check.ts")], { cwd: fixture, stdio: "pipe" });
     assert.doesNotThrow(lint);
     await writeFile(join(fixture, ".github/workflows/unauthorized.yml"), "name: unauthorized\n");
     assert.throws(lint, /only the native prebuild, local-directory, and release PR workflows are authorized/);

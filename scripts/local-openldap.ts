@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { spawn, spawnSync } from "node:child_process";
+import type { SpawnSyncOptions } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 // Opt-in only. All credentials, tickets, CA keys and server data live in this
@@ -15,7 +16,7 @@ const client = `${prefix}-client`;
 const root = fileURLToPath(new URL("../", import.meta.url));
 const clientImage = "node@sha256:6dac556d980b7f0e5498d08f08cee0ca67798b4ad6c23964a9214920e67758d0";
 
-function docker(args, options = {}) {
+function docker(args: string[], options: SpawnSyncOptions = {}) {
   const result = spawnSync("docker", args, { stdio: "inherit", ...options });
   if (result.error) throw result.error;
   if (result.status !== 0) throw new Error(`docker ${args[0]} failed (${result.status})`);
@@ -26,17 +27,17 @@ function cleanup() {
     spawnSync("docker", args, { stdio: "ignore" });
   }
 }
-for (const [signal, code] of [["SIGINT", 130], ["SIGTERM", 143]]) {
+for (const [signal, code] of [["SIGINT", 130], ["SIGTERM", 143]] as const) {
   process.once(signal, () => { cleanup(); process.exit(code); });
 }
 
-function waitForLog(container, marker) {
-  return new Promise((resolve, reject) => {
+function waitForLog(container: string, marker: string) {
+  return new Promise<void>((resolve, reject) => {
     const logs = spawn("docker", ["logs", "--follow", container], { stdio: ["ignore", "pipe", "pipe"] });
     let recent = "";
     let settled = false;
     const timeout = setTimeout(() => finish(new Error(`${container} did not report ${marker}`)), 60_000);
-    function finish(error) {
+    function finish(error?: Error) {
       if (settled) return;
       settled = true;
       clearTimeout(timeout);
@@ -44,7 +45,7 @@ function waitForLog(container, marker) {
       logs.kill();
       if (error) reject(error); else resolve();
     }
-    function receive(chunk) {
+    function receive(chunk: Buffer) {
       recent = (recent + chunk.toString()).slice(-8192);
       if (recent.includes(marker)) finish();
     }

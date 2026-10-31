@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
 const target = process.argv[2];
 const supported = new Set(["linux-glibc-x64", "win32-x64"]);
 if (!supported.has(target)) throw new Error("target must be linux-glibc-x64 or win32-x64");
-const current = process.platform === "linux" && process.arch === "x64" && process.report.getReport().header.glibcVersionRuntime
+const current = process.platform === "linux" && process.arch === "x64" && (process.report.getReport() as { header: { glibcVersionRuntime?: string } }).header.glibcVersionRuntime
   ? "linux-glibc-x64"
   : process.platform === "win32" && process.arch === "x64"
     ? "win32-x64"

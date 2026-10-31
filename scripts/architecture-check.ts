@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-async function files(directory) { const result = []; for (const entry of await readdir(directory, { withFileTypes: true })) { const path = join(directory, entry.name); if (entry.isDirectory()) result.push(...await files(path)); else if (path.endsWith(".ts")) result.push(path); } return result; }
+async function files(directory: string): Promise<string[]> { const result: string[] = []; for (const entry of await readdir(directory, { withFileTypes: true })) { const path = join(directory, entry.name); if (entry.isDirectory()) result.push(...await files(path)); else if (path.endsWith(".ts")) result.push(path); } return result; }
 const sources = await files("src");
 for (const file of sources) {
   const body = await readFile(file, "utf8");
@@ -24,7 +24,7 @@ if (rootPackage?.optionalDependencies?.["node-addon-api"] !== "8.9.2" || rootPac
 if (providerManifest.name !== "kerberos" || providerManifest.version !== "7.0.0" || providerManifest.ldapAxiPatch?.level !== 1 || providerManifest.ldapAxiPatch?.entry !== "lib/ldap-axi-patch.js" || providerManifest.scripts || providerManifest.dependencies) throw new Error("vendored kerberos must remain inert source owned by the package root");
 const prebuildManifest = JSON.parse(await readFile("prebuilds/manifest.json", "utf8"));
 if (prebuildManifest.version !== 1 || prebuildManifest.release?.repository !== "knowttl/ldap-axi" || !prebuildManifest.artifacts || Array.isArray(prebuildManifest.artifacts)) throw new Error("native prebuild manifest is malformed");
-for (const [target, artifact] of Object.entries(prebuildManifest.artifacts)) {
+for (const [target, artifact] of Object.entries(prebuildManifest.artifacts as Record<string, { napi: number; patchLevel: number; sha256: string; bundled: boolean; asset: string }>)) {
   if (
     !new Set(["linux-glibc-x64", "win32-x64"]).has(target) ||
     artifact?.napi !== 9 ||
@@ -49,5 +49,5 @@ try {
     if (!titles.has(pattern)) throw new Error(`workflow ${file} selects a test that does not exist: ${pattern}`);
   }
 } catch (error) {
-  if (error?.code !== "ENOENT") throw error;
+  if ((error as NodeJS.ErrnoException)?.code !== "ENOENT") throw error;
 }

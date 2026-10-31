@@ -87,4 +87,4 @@ docker exec \
 
 cleanup
 trap - EXIT
-node scripts/local-openldap.mjs
+node scripts/local-openldap.ts
