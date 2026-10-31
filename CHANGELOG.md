@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.3](https://github.com/knowttl/ldap-axi/compare/v0.3.2...v0.3.3) (2026-10-31)
+
+
+### Bug Fixes
+
+* correct version aliases, flag validation and configured home ([#49](https://github.com/knowttl/ldap-axi/issues/49)) ([e6a48fd](https://github.com/knowttl/ldap-axi/commit/e6a48fdc4f664d69785afc59e3f1421d996d2f40))
+
 ## [0.3.2](https://github.com/knowttl/ldap-axi/compare/v0.3.1...v0.3.2) (2026-10-30)
 
 
