@@ -10,6 +10,8 @@ This file is the single status surface for the project; `README.md` states the i
 
 | Command | State |
 | --- | --- |
+| Home (no command) | Configured: bounded five-row immediate-child preview with visible-search totals and incomplete-result disclosure; `--offline`, `--session-start` and unconfigured home stay local; failed connections report explicit offline status |
+| `--version`, `-v`, `-V` | Bare aliases return only the package version before loading configuration, the command graph or native authentication; verified through the packed install's bin target |
 | `entry search`, `entry show` | Implemented |
 | `user list`, `user show`, `user groups` | Implemented |
 | `group list`, `group show`, `group members` | Implemented |
@@ -168,6 +170,7 @@ verify the attestation.
 | Claim | Evidence |
 | --- | --- |
 | Offline command surface, decoders, escaping, paging, TLS options, credential rules | `npm run verify`, wholly synthetic fixtures (`docs/design/v1.md` §18) |
+| Version aliases, strict short flags, configured home and offline startup | Clean packed-install bin tests plus synthetic `Directory` fixtures across AD, AD LDS, LDAPv3 and all auth modes; controlled in-process LDAP tests prove one simple bind, read-only preview and failed-bind handling; no real-directory home verification is claimed |
 | Real AD flavor detection, paging, referral reporting, `objectSid`/`objectGUID`/FILETIME/`userAccountControl` decoding, `tokenGroups` membership | Proved against an ephemeral Samba AD DC by the opt-in `npm run test:local-directory` (`docs/design/v1.md` §18.4) |
 | Identifier-based `user show` / `group show` at an AD domain root, where the server returns continuation references | Offline regression only (`docs/design/v1.md` §5.5 rule 4, §18.5). The reference shape is the one `npm run test:local-directory` observes; no live re-proof is on record for the resolution path |
 | A signed or sealed SASL layer over a TLS connection | **Refused by the server**, which is why D1 option C selects no SASL layer over TLS. Measured against Samba 4.19.5, and Windows AD applies the same rule (`docs/design/v1.md` §10.7, §20 item 8) |
@@ -182,3 +185,5 @@ verify the attestation.
 The manual live smoke script (`npm run smoke:live -- --url ldaps://server:636`) requires a read-only directory
 credential and `LDAP_AXI_LIVE=1`, runs one fixed read-only sequence, writes a redacted evidence file outside
 this repository, stays outside `npm run verify`, and never runs automatically (`docs/design/v1.md` §19.5).
+The startup regression's remote `npx skills add` route and a new Windows packed-install run remain pending until those environments are exercised.
+Offline packed tests verify the shipped skill through explicit `setup --skill --hook` installation and `--check` for Claude, Codex and OpenCode.

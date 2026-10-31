@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { parse, run } from "../../src/cli.js";
+import { parse, run } from "../../src/cli-main.js";
 import { pageSizeForFlavor, resolveSettings } from "../../src/config.js";
 import { CliError } from "../../src/core.js";
 

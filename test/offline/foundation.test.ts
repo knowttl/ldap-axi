@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { createServer, type Server } from "node:net";
 import test from "node:test";
-import { parse } from "../../src/cli.js";
+import { parse } from "../../src/cli-main.js";
+import { run } from "../../src/cli.js";
+import { SaslFrameDecoder } from "../../src/directory/sasl-wire.js";
 import { attributeBaseName, CliError, type Directory, type RootDse, type SearchPage, type SearchRequest } from "../../src/core.js";
 import { validatePageSize } from "../../src/config.js";
 import { AdminLimitExceededError, Attribute, NoSuchObjectError, SearchEntry, SizeLimitExceededError, TimeLimitExceededError, UnknownStatusCodeError } from "ldapts";
@@ -30,12 +32,12 @@ function readTlv(buffer: Buffer, offset: number): { tag: number; value: Buffer; 
 function ldapMessage(messageId: number, operation: Buffer, controls?: Buffer): Buffer {
   return der(0x30, Buffer.concat([der(0x02, Buffer.from([messageId])), operation, ...(controls ? [controls] : [])]));
 }
-function searchResultEntry(messageId: number, attributes: Readonly<Record<string, readonly string[]>>): Buffer {
+function searchResultEntry(messageId: number, attributes: Readonly<Record<string, readonly string[]>>, dn = ""): Buffer {
   const encoded = Object.entries(attributes).map(([type, values]) => der(0x30, Buffer.concat([
     der(0x04, Buffer.from(type)),
     der(0x31, Buffer.concat(values.map(value => der(0x04, Buffer.from(value))))),
   ])));
-  return ldapMessage(messageId, der(0x64, Buffer.concat([der(0x04, Buffer.alloc(0)), der(0x30, Buffer.concat(encoded))])));
+  return ldapMessage(messageId, der(0x64, Buffer.concat([der(0x04, Buffer.from(dn)), der(0x30, Buffer.concat(encoded))])));
 }
 function searchResultDone(messageId: number): Buffer {
   const emptyCookie = der(0x30, Buffer.concat([der(0x02, Buffer.from([0])), der(0x04, Buffer.alloc(0))]));
@@ -132,6 +134,51 @@ test("bounded multivalue output reports truncation and the original count", asyn
   assert.equal((entry.description as string[]).length, 50);
   assert.equal(entry.description_value_count, 51);
   assert.equal(entry.description_values_truncated, true);
+});
+
+for (const rejectedBind of [false, true]) test(`configured home uses the sealed client against a synthetic LDAP server (${rejectedBind ? "failed bind" : "live preview"})`, { timeout: 5000 }, async () => {
+  const base = "dc=example,dc=test";
+  const previous = { dn: process.env.LDAP_AXI_BIND_DN, password: process.env.LDAP_AXI_BIND_PASSWORD };
+  process.env.LDAP_AXI_BIND_DN = `cn=reader,${base}`;
+  process.env.LDAP_AXI_BIND_PASSWORD = "synthetic-home-wire-canary";
+  const operations: number[] = [];
+  const server = createServer(socket => {
+    const decoder = new SaslFrameDecoder();
+    socket.on("data", data => {
+      for (const frame of decoder.push(data)) {
+        const message = readTlv(frame, 0);
+        const id = readTlv(message.value, 0);
+        const operation = readTlv(message.value, id.end);
+        const messageId = id.value.readUIntBE(0, id.value.length);
+        operations.push(operation.tag);
+        if (operation.tag === 0x42) { socket.end(); continue; }
+        if (operation.tag === 0x60) {
+          socket.write(ldapMessage(messageId, der(0x61, Buffer.concat([der(0x0a, Buffer.from([rejectedBind ? 49 : 0])), der(0x04, Buffer.alloc(0)), der(0x04, Buffer.alloc(0))]))));
+          continue;
+        }
+        assert.equal(operation.tag, 0x63, "home sent a non-read LDAP operation");
+        const searchBase = readTlv(operation.value, 0).value.toString();
+        socket.write(Buffer.concat([
+          searchBase === "" ? searchResultEntry(messageId, { namingContexts: [base] }) : searchResultEntry(messageId, { cn: ["preview"], userPassword: ["synthetic-home-wire-canary"] }, `cn=preview,${base}`),
+          searchResultDone(messageId),
+        ]));
+      }
+    });
+  });
+  try {
+    const port = await listening(server);
+    const result = await run(["--url", `ldap://127.0.0.1:${port}`, "--auth", "simple", "--insecure-plaintext", "--config", "test/nonexistent-config.json"]);
+    assert.equal(result.exitCode, 0, result.stdout);
+    assert.match(result.stdout, rejectedBind ? /offline_reason: AUTH_FAILED/ : /connection: live/);
+    assert.doesNotMatch(result.stdout, /synthetic-home-wire-canary|userPassword/);
+    assert.equal(operations.filter(tag => tag === 0x60).length, 1);
+    assert.equal(operations.filter(tag => tag === 0x63).length, rejectedBind ? 0 : 2);
+    if (!rejectedBind) { assert.match(result.stdout, /cn=preview/); assert.match(result.stdout, /1 of 1 total/); }
+  } finally {
+    if (previous.dn === undefined) delete process.env.LDAP_AXI_BIND_DN; else process.env.LDAP_AXI_BIND_DN = previous.dn;
+    if (previous.password === undefined) delete process.env.LDAP_AXI_BIND_PASSWORD; else process.env.LDAP_AXI_BIND_PASSWORD = previous.password;
+    server.close();
+  }
 });
 test("a default read distinguishes an exhausted page from a continuation and a definitive empty result", async () => {
   const entry = { dn: "cn=a,dc=example,dc=test", attributes: { cn: ["a"] } };

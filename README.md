@@ -23,7 +23,9 @@ ldap-axi
 npx -y @knowttl/ldap-axi
 ```
 
-The home view never connects; its output includes:
+Configured home previews up to five immediate children of the selected directory base using the existing authentication and TLS policy.
+Use `ldap-axi --offline` for local status without connecting.
+An unconfigured home also stays offline; its output includes:
 
 ```text
 description: Read Active Directory and LDAPv3 directories safely with ldap-axi (read-only)

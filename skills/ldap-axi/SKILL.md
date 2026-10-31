@@ -71,7 +71,8 @@ Empty reads cannot distinguish absent entries from entries hidden by access cont
 ## Safety and authentication
 
 Directory read allowlist: entry search, entry show, user list, user show, user groups, group list, group show, group members, computer list, computer show, server, auth status.
-Local reads: home (no arguments), profile list, config path, and auth status with `--offline`.
+Local reads: home with `--offline` or `--session-start`, unconfigured home, profile list, config path, and auth status with `--offline`.
+Configured home previews at most five immediate children using the selected authentication and TLS policy; incomplete previews report unknown totals and recovery hints.
 No directory mutation commands or flags unlock writes.
 Exclude setup from investigation allowlists: it writes selected local agent integrations unless `--check` is used.
 Each connected invocation performs one authentication exchange; failed AD binds can increment lockout counters.
