@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { stripTypeScriptTypes } from "node:module";
 import { join, resolve } from "node:path";
 import test from "node:test";
 import { pathToFileURL } from "node:url";
@@ -92,7 +93,7 @@ function digest(bytes: Buffer): string {
 for (const { script, workflowStep, environment } of [
   { script: "scripts/assemble-native-release.mjs", workflowStep: true,
     environment: { RELEASE_TAG: "v1.2.3", GITHUB_REF_NAME: "main", GITHUB_EVENT_NAME: "workflow_dispatch", GITHUB_REF_TYPE: "branch" } },
-  { script: "test/support/assemble-native-release-v0.2.0.mjs", workflowStep: true,
+  { script: "test/support/assemble-native-release-v0.2.0.ts", workflowStep: true,
     environment: { RELEASE_TAG: "v1.2.3", GITHUB_REF_NAME: "main", GITHUB_EVENT_NAME: "workflow_dispatch", GITHUB_REF_TYPE: "branch" } },
   { script: "scripts/assemble-native-release.mjs", workflowStep: false,
     environment: { RELEASE_TAG: "v1.2.3", GITHUB_REF_NAME: "main", GITHUB_EVENT_NAME: "workflow_dispatch", GITHUB_REF_TYPE: "branch" } },
@@ -134,8 +135,9 @@ for (const { script, workflowStep, environment } of [
         const step = workflow.jobs["release-stage"].steps.find(step => step.name === "Pin release digests in package manifest");
         assert.ok(step?.run);
         await mkdir(join(fixture, "scripts"));
-        await copyFile(script, join(fixture, "scripts/assemble-native-release.mjs"));
-        if (script === "test/support/assemble-native-release-v0.2.0.mjs") {
+        const scriptBody = await readFile(script, "utf8");
+        await writeFile(join(fixture, "scripts/assemble-native-release.mjs"), script.endsWith(".ts") ? stripTypeScriptTypes(scriptBody) : scriptBody);
+        if (script === "test/support/assemble-native-release-v0.2.0.ts") {
           assert.throws(() => execFileSync(process.execPath, ["scripts/assemble-native-release.mjs", "release"], options), /tag main does not match package version 1.2.3/);
         }
         execFileSync("bash", ["--noprofile", "--norc", "-e", "-o", "pipefail", "-c", step.run], options);

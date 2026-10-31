@@ -37,7 +37,7 @@ const STEPS = [
 ];
 
 /** Records the key names and element counts a TOON document carries, and none of its values. */
-function shape(stdout) {
+function shape(stdout: string) {
   const keys = [];
   for (const line of stdout.split("\n")) {
     const match = /^([A-Za-z0-9_]+)(?:\[(\d+)\])?:/.exec(line);
@@ -45,11 +45,11 @@ function shape(stdout) {
   }
   return keys;
 }
-function errorCode(stdout) {
+function errorCode(stdout: string) {
   return /^code: ([A-Z_]+)$/m.exec(stdout)?.[1];
 }
 
-const traces = [];
+const traces: unknown[] = [];
 const write = process.stderr.write.bind(process.stderr);
 process.stderr.write = (chunk, ...rest) => {
   const text = typeof chunk === "string" ? chunk : Buffer.from(chunk).toString("utf8");
@@ -57,10 +57,10 @@ process.stderr.write = (chunk, ...rest) => {
     if (!line.startsWith("ldap-axi-trace ")) continue;
     try { traces.push(JSON.parse(line.slice("ldap-axi-trace ".length))); } catch { traces.push({ event: "unparsed-trace" }); }
   }
-  return write(chunk, ...rest);
+  return Reflect.apply(write, process.stderr, [chunk, ...rest]);
 };
 
-const evidence = { tool: "ldap-axi live smoke", url_scheme: new URL(url).protocol.replace(":", ""), steps: [] };
+const evidence = { tool: "ldap-axi live smoke", url_scheme: new URL(url).protocol.replace(":", ""), steps: [] as { step: string; argv: string[]; exit_code: number; elapsed_ms: number; keys: string[]; error_code?: string; warnings: string[]; trace: unknown[] }[] };
 let failed = 0;
 for (const step of STEPS) {
   const before = traces.length;

@@ -329,10 +329,10 @@ test("auth status rejects an unknown subcommand, positionals, and unknown flags 
 });
 
 test("the live smoke script refuses to run without the explicit live opt-in", () => {
-  const result = spawnSync(process.execPath, ["scripts/live-smoke.mjs", "--url", "ldaps://directory.example.test"], { env: { ...process.env, LDAP_AXI_LIVE: "0" }, encoding: "utf8" });
+  const result = spawnSync(process.execPath, ["scripts/live-smoke.ts", "--url", "ldaps://directory.example.test"], { env: { ...process.env, LDAP_AXI_LIVE: "0" }, encoding: "utf8" });
   assert.equal(result.status, 2);
   assert.match(result.stderr, /LDAP_AXI_LIVE=1/);
-  const withoutUrl = spawnSync(process.execPath, ["scripts/live-smoke.mjs"], { env: { ...process.env, LDAP_AXI_LIVE: "1", LDAP_AXI_URL: "" }, encoding: "utf8" });
+  const withoutUrl = spawnSync(process.execPath, ["scripts/live-smoke.ts"], { env: { ...process.env, LDAP_AXI_LIVE: "1", LDAP_AXI_URL: "" }, encoding: "utf8" });
   assert.equal(withoutUrl.status, 2);
   assert.match(withoutUrl.stderr, /--url/);
 });
@@ -344,7 +344,7 @@ for (const errorCode of ["SERVER_UNREACHABLE", "OPERATION_TIMEOUT"]) test(`the l
     // Keep the script and CLI real; replace only the directory-opening boundary.
     const source = `
       import { mock } from "node:test";
-      process.argv = [process.execPath, "scripts/live-smoke.mjs", ...process.argv.slice(1)];
+      process.argv = [process.execPath, "scripts/live-smoke.ts", ...process.argv.slice(1)];
       const { run } = await import("./dist/src/cli.js");
       const { CliError } = await import("./dist/src/core.js");
       let attempts = 0;
@@ -354,7 +354,7 @@ for (const errorCode of ["SERVER_UNREACHABLE", "OPERATION_TIMEOUT"]) test(`the l
           throw new CliError(${JSON.stringify(errorCode)}, "Synthetic failure at directory.example.test");
         } }),
       } });
-      await import("./scripts/live-smoke.mjs");
+      await import("./scripts/live-smoke.ts");
       console.log("directory_open_attempts:", attempts);
     `;
     const result = spawnSync(process.execPath, ["--experimental-test-module-mocks", "--input-type=module", "--eval", source, "--", "--out", evidenceFile, "--url", "ldap://directory.example.test", "--anonymous", "--insecure-plaintext"], {
