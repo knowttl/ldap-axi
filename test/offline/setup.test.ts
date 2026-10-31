@@ -97,9 +97,9 @@ test("installed hook executes the compact offline home with paths containing spa
 test("setup repairs the executable after relocation", async () => {
   await fixture(async (root, _env, invoke) => {
     assert.equal(invoke(install).status, 0);
-    const moved = join(root, "relocated package", "src");
+    const moved = join(root, "relocated package", "dist", "src");
     await cp("dist/src", moved, { recursive: true });
-    await writeFile(join(dirname(moved), "package.json"), '{"type":"module"}');
+    await cp("package.json", join(dirname(dirname(moved)), "package.json"));
     await symlink(resolve("node_modules"), join(dirname(moved), "node_modules"), process.platform === "win32" ? "junction" : "dir");
     const executable = join(moved, "cli.js");
     assert.equal(invoke([...install, "--check"], executable).status, 1);
@@ -190,9 +190,9 @@ for (const app of ["codex", "opencode"]) test(`${app} hook setup is isolated, re
     assert.equal(await readFile(path, "utf8"), before);
     assert.equal((await stat(path)).mtimeMs, time);
     assert.equal(invoke([...args, "--check"]).status, 0);
-    const moved = join(root, "relocated package", "src");
+    const moved = join(root, "relocated package", "dist", "src");
     await cp("dist/src", moved, { recursive: true });
-    await writeFile(join(dirname(moved), "package.json"), '{"type":"module"}');
+    await cp("package.json", join(dirname(dirname(moved)), "package.json"));
     await symlink(resolve("node_modules"), join(dirname(moved), "node_modules"), process.platform === "win32" ? "junction" : "dir");
     const executable = join(moved, "cli.js");
     assert.equal(invoke([...args, "--check"], executable).status, 1);
@@ -326,7 +326,7 @@ test("OpenCode injects bounded offline context through its real generated plugin
 
 test("ordinary offline commands never install integrations or connect", async () => {
   await fixture(async (root, _env, invoke) => {
-    for (const args of [[], ["--help"], ["--session-start"], ["setup", "--help"], ["auth", "status", "--offline"], ["config", "path"], ["profile", "list"]]) {
+    for (const args of [["--offline"], ["--help"], ["--session-start"], ["setup", "--help"], ["auth", "status", "--offline"], ["config", "path"], ["profile", "list"]]) {
       const result = invoke(args);
       assert.equal(result.status, 0, String(result.stdout));
       assert.deepEqual(await readdir(root), []);

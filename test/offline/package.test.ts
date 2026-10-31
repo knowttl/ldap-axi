@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { execFileSync, spawn } from "node:child_process";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
@@ -94,6 +94,102 @@ function verifyCli(packageRoot: string): void {
     shell: process.platform === "win32",
   });
   assert.match(output, /^Read Active Directory and LDAPv3 directories\./);
+  const guard = resolve(packageRoot, "version-guard.mjs");
+  writeFileSync(guard, `
+    import { registerHooks, syncBuiltinESMExports, createRequire } from "node:module";
+    import net from "node:net";
+    import tls from "node:tls";
+    const forbidden = () => { process.stderr.write("Version attempted network/native authentication work\\n"); throw new Error("forbidden version side effect"); };
+    net.Socket.prototype.connect = forbidden;
+    tls.connect = forbidden;
+    createRequire(import.meta.url)("node:module")._extensions[".node"] = forbidden;
+    syncBuiltinESMExports();
+    registerHooks({ resolve(specifier, context, next) {
+      const resolved = next(specifier, context);
+      if (!resolved.url.startsWith("node:") && !/\\/(cli|version)\\.js$/.test(resolved.url)) {
+        throw new Error("Version loaded the command graph: " + resolved.url);
+      }
+      return resolved;
+    } });
+  `);
+  for (const flag of ["--version", "-v", "-V"]) {
+    const result = spawnSync(executable, [flag], {
+      encoding: "utf8", shell: process.platform === "win32",
+      env: { ...process.env, NODE_OPTIONS: `--import=${pathToFileURL(guard).href}`, LDAP_AXI_URL: "invalid-url", LDAP_AXI_AUTH: "invalid-auth", LDAP_AXI_CONFIG_FILE: "deprecated-must-not-be-read" },
+    });
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout, `${packageManifest.version}\n`);
+    assert.equal(result.stderr, "");
+  }
+  const floor: number[] = [];
+  const version: number[] = [];
+  for (let trial = 0; trial < 3; trial++) {
+    let started = performance.now();
+    execFileSync(process.execPath, ["-e", "console.log(1)"], { stdio: "pipe" });
+    floor.push(performance.now() - started);
+    started = performance.now();
+    execFileSync(process.execPath, [resolve(packageRoot, "dist/src/cli.js"), "--version"], { stdio: "pipe" });
+    version.push(performance.now() - started);
+  }
+  assert.ok(version.toSorted((a, b) => a - b)[1] < floor.toSorted((a, b) => a - b)[1] * 4, "version startup must stay close to the same-machine Node startup floor");
+  for (const argv of [["-x"], ["--offline", "extra"], ["entry", "search", "-x"]]) {
+    const result = spawnSync(executable, argv, {
+      encoding: "utf8", shell: process.platform === "win32",
+      env: { ...process.env, LDAP_AXI_URL: "invalid-url", LDAP_AXI_AUTH: "invalid-auth" },
+    });
+    assert.equal(result.status, 2, result.stderr);
+    assert.match(result.stdout, /VALIDATION_ERROR/);
+    assert.match(result.stdout, /valid flags/);
+    assert.match(result.stdout, new RegExp(argv.at(-1)!));
+  }
+  for (const argv of [["user", "list", "--help"], ["auth", "status", "--help"], ["setup", "--help"]]) {
+    const output = execFileSync(executable, argv, { encoding: "utf8", shell: process.platform === "win32" });
+    assert.match(output, /--/);
+    assert.match(output, /Examples:/);
+  }
+  const agentRoot = resolve(packageRoot, "isolated-agent-home");
+  const environment = {
+    ...process.env,
+    LDAP_AXI_CONFIG: resolve(agentRoot, "missing.json"), LDAP_AXI_CREDENTIALS_FILE: resolve(agentRoot, "missing.env"),
+    LDAP_AXI_URL: "ldaps://directory.example.test", LDAP_AXI_AUTH: "auto", LDAP_AXI_BIND_DN: "cn=synthetic", LDAP_AXI_BIND_PASSWORD: "packaged-home-canary",
+    CLAUDE_CONFIG_DIR: resolve(agentRoot, "claude"), CODEX_HOME: resolve(agentRoot, "codex"), OPENCODE_CONFIG_DIR: resolve(agentRoot, "opencode"),
+  };
+  const optionGuard = resolve(packageRoot, "option-value-guard.mjs");
+  writeFileSync(optionGuard, `
+    import { syncBuiltinESMExports } from "node:module";
+    import net from "node:net";
+    import tls from "node:tls";
+    const forbidden = () => { process.stderr.write("Invalid option attempted network/native authentication work\\n"); throw new Error("forbidden option side effect"); };
+    net.Socket.prototype.connect = forbidden;
+    tls.connect = forbidden;
+    process.dlopen = forbidden;
+    syncBuiltinESMExports();
+  `);
+  for (const option of ["base", "profile"]) {
+    const result = spawnSync(executable, ["--auth", "simple", `--${option}`, "-x"], {
+      encoding: "utf8", shell: process.platform === "win32",
+      env: { ...environment, NODE_OPTIONS: `--import=${pathToFileURL(optionGuard).href}` },
+    });
+    assert.equal(result.status, 2, result.stderr);
+    assert.match(result.stdout, /VALIDATION_ERROR/);
+    assert.ok(result.stdout.includes(`--${option} requires a value`), result.stdout);
+    assert.equal(result.stderr, "");
+  }
+  const inlineBase = execFileSync(executable, ["--auth", "simple", "--offline", "--base=-x"], {
+    encoding: "utf8", shell: process.platform === "win32", env: environment,
+  });
+  assert.match(inlineBase, /connection: offline/);
+  for (const app of ["claude", "codex", "opencode"]) {
+    const args = ["setup", "--app", app, "--skill", "--hook"];
+    execFileSync(executable, args, { env: environment, shell: process.platform === "win32", stdio: "pipe" });
+    execFileSync(executable, [...args, "--check"], { env: environment, shell: process.platform === "win32", stdio: "pipe" });
+    assert.equal(readFileSync(resolve(agentRoot, app, "skills/ldap-axi/SKILL.md"), "utf8").startsWith(readFileSync(resolve(packageRoot, "skills/ldap-axi/SKILL.md"), "utf8")), true);
+  }
+  for (const flag of ["--offline", "--session-start"]) {
+    const output = execFileSync(executable, [flag], { env: environment, shell: process.platform === "win32", encoding: "utf8" });
+    assert.match(output, /connection: offline/);
+    assert.doesNotMatch(output, /packaged-home-canary/);
+  }
 }
 
 function verifyNativeProvider(packageRoot: string): void {

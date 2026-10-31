@@ -9,7 +9,8 @@ import { run } from "../../src/cli.js";
 import { COMMANDS, homeView, LDAP_AXI_DESCRIPTION } from "../../src/home.js";
 import { selectAuthPlan } from "../../src/directory/auth.js";
 import { createSkillMarkdown } from "../../src/skill.js";
-import { RecordedDirectory } from "../support/fixtures.js";
+import { BASE, byFilter, entry, RecordedDirectory } from "../support/fixtures.js";
+import { CliError } from "../../src/core.js";
 
 const provider = { prepare: async () => ({ kind: "failed" as const }) };
 const offlineInput = {
@@ -167,7 +168,7 @@ test("the home command renders the noun list through the CLI", async () => {
 });
 test("the home command does not claim auto auth will use configured simple credentials", async () => {
   await withEnvironment({ ...isolatedConfig(), LDAP_AXI_URL: "ldaps://directory.example.test", LDAP_AXI_BIND_DN: "cn=synthetic", LDAP_AXI_BIND_PASSWORD: "synthetic" }, async () => {
-    const home = await run([]);
+    const home = await run(["--offline"]);
     assert.match(home.stdout, /credentials: configured for simple auth/);
     assert.match(home.stdout, /auto.*ambient/);
   });
@@ -178,6 +179,140 @@ test("refusing unverified GSSAPI TLS does not warn that verification was disable
     assert.equal(result.exitCode, 1);
     assert.match(result.stdout, /TLS_REQUIRED/);
     assert.equal(result.stderr, "");
+  });
+});
+
+for (const flavor of ["ad", "adlds", "ldapv3"] as const) {
+  for (const auth of ["auto", "gssapi", "simple", "anonymous"] as const) {
+    test(`configured home previews ${flavor} with ${auth} through the selected connection`, async () => {
+      await withEnvironment({ ...isolatedConfig(), ...(auth === "simple" ? { LDAP_AXI_BIND_DN: "cn=synthetic", LDAP_AXI_BIND_PASSWORD: "home-canary-password" } : {}) }, async () => {
+        const directory = new RecordedDirectory(flavor, [byFilter(["(objectClass=*)"], [entry(`cn=preview,${BASE}`, { cn: ["preview"], objectClass: ["container"] })])], { namingContexts: [BASE] });
+        let closed = false;
+        directory.close = async () => { closed = true; };
+        const home = await run(["--url", "ldaps://directory.example.test", ...(auth === "anonymous" ? ["--anonymous"] : ["--auth", auth])], { openDirectory: async options => {
+          assert.equal(options.authPlan?.mode, auth === "auto" ? "gssapi" : auth);
+          assert.equal(options.timeoutMs, 3000);
+          return directory;
+        } });
+        assert.equal(home.exitCode, 0, home.stdout);
+        assert.match(home.stdout, /connection: live/);
+        assert.match(home.stdout, new RegExp(`flavor: ${flavor}`));
+        assert.match(home.stdout, /1 of 1 total/);
+        assert.match(home.stdout, /cn=preview/);
+        assert.match(home.stdout, /tls_verified: true/);
+        assert.doesNotMatch(home.stdout, /home-canary-password/);
+        assert.deepEqual(directory.requests, [{ base: BASE, scope: "one", filter: "(objectClass=*)", attributes: ["cn"], pageSize: 5 }]);
+        assert.equal(closed, true);
+      });
+    });
+  }
+}
+
+test("offline, session-start and unconfigured home never open a directory", async () => {
+  await withEnvironment(isolatedConfig(), async () => {
+    for (const argv of [[], ["--offline", "--url", "ldaps://directory.example.test"], ["--session-start", "--url", "ldaps://directory.example.test"]]) {
+      const result = await run(argv, { openDirectory: async () => { assert.fail("offline home connected"); } });
+      assert.equal(result.exitCode, 0);
+      assert.match(result.stdout, /connection: offline/);
+      assert.match(result.stdout, /offline_reason:/);
+    }
+  });
+});
+
+test("home bounds preview rows and text and discloses truncation", async () => {
+  await withEnvironment(isolatedConfig(), async () => {
+    const directory = new RecordedDirectory("ad", [byFilter(["(objectClass=*)"], Array.from({ length: 6 }, (_, index) => entry(`cn=${"x".repeat(900)}${index},${BASE}`, { cn: ["y".repeat(900)] })))], { defaultNamingContext: [BASE] });
+    const result = await run(["--url", "ldaps://directory.example.test", "--anonymous"], { openDirectory: async () => directory });
+    assert.equal(result.exitCode, 0);
+    assert.match(result.stdout, /5 of unknown total/);
+    assert.match(result.stdout, /stop_reason: max_rows/);
+    assert.match(result.stdout, /truncated, 900 chars total/);
+    assert.match(result.stdout, /entry search --scope one --all --max-rows/);
+    assert.ok(result.stdout.length < 11000);
+  });
+});
+
+test("home with multiple naming contexts asks for a base without searching", async () => {
+  await withEnvironment(isolatedConfig(), async () => {
+    const directory = new RecordedDirectory("ldapv3", [], { namingContexts: [BASE, "dc=other,dc=test"] });
+    const result = await run(["--url", "ldaps://directory.example.test", "--anonymous"], { openDirectory: async () => directory });
+    assert.match(result.stdout, /preview: "unavailable: select a search base"/);
+    assert.match(result.stdout, /--base/);
+    assert.equal(directory.requests.length, 0);
+  });
+});
+
+test("home bounds referral output without chasing or claiming a complete zero", async () => {
+  await withEnvironment(isolatedConfig(), async () => {
+    const directory = new RecordedDirectory("ldapv3", [byFilter(["(objectClass=*)"], [{ entries: [], referrals: Array.from({ length: 6 }, () => `ldap://directory.example.test/${"x".repeat(900)}`) }])], { namingContexts: [BASE] });
+    const result = await run(["--url", "ldaps://directory.example.test", "--anonymous"], { openDirectory: async () => directory });
+    assert.equal(result.exitCode, 0);
+    assert.match(result.stdout, /0 of unknown total/);
+    assert.match(result.stdout, /partial: true/);
+    assert.match(result.stdout, /referral_count: 6/);
+    assert.match(result.stdout, /referrals_truncated: true/);
+    assert.ok(result.stdout.length < 6000);
+    assert.equal(directory.requests.length, 1);
+  });
+});
+
+test("home preserves the real client's TLS refusal before GSSAPI or LDAP work", async () => {
+  await withEnvironment(isolatedConfig(), async () => {
+    const result = await run(["--url", "ldaps://directory.example.test", "--tls-no-verify"]);
+    assert.equal(result.exitCode, 0);
+    assert.match(result.stdout, /connection: offline/);
+    assert.match(result.stdout, /offline_reason: TLS_REQUIRED/);
+    assert.equal(result.stderr, "");
+  });
+});
+
+for (const code of ["AUTH_FAILED", "TLS_UNTRUSTED", "TLS_REQUIRED", "SERVER_UNREACHABLE", "GSSAPI_UNAVAILABLE"] as const) {
+  test(`home reports ${code} as offline without claiming empty results or retrying`, async () => {
+    await withEnvironment(isolatedConfig(), async () => {
+      let attempts = 0;
+      const result = await run(["--url", "ldaps://directory.example.test"], { openDirectory: async () => { attempts++; throw new CliError(code, "synthetic directory failure"); } });
+      assert.equal(result.exitCode, 0);
+      assert.match(result.stdout, /connection: offline/);
+      assert.match(result.stdout, new RegExp(`offline_reason: ${code}`));
+      assert.match(result.stdout, /auth status/);
+      assert.doesNotMatch(result.stdout, /0 entries|0 of/);
+      assert.equal(attempts, 1);
+    });
+  });
+}
+
+test("home distinguishes empty, denied and incomplete previews", async () => {
+  await withEnvironment(isolatedConfig(), async () => {
+    const preview = entry(`cn=preview,${BASE}`, { cn: ["preview"] });
+    const cases = [
+      { pages: [{ entries: [] }], match: /0 entries matched/ },
+      { pages: [{ entries: [preview] }, { entries: [preview] }], match: /incomplete: page_boundary/ },
+      { pages: [{ entries: [preview], stopReason: "server_size_limit" as const }], match: /partial: true/ },
+      { pages: [{ entries: [], stopReason: "server_size_limit" as const }], match: /preview_error: SERVER_LIMIT/ },
+    ];
+    for (const { pages, match } of cases) {
+      const directory = new RecordedDirectory("ldapv3", [byFilter(["(objectClass=*)"], pages)], { namingContexts: [BASE] });
+      const result = await run(["--url", "ldaps://directory.example.test", "--anonymous"], { openDirectory: async () => directory });
+      assert.equal(result.exitCode, 0);
+      assert.match(result.stdout, match);
+      if (pages.length > 1) { assert.match(result.stdout, /1 of unknown total/); assert.match(result.stdout, /entry search --scope one --all --max-rows/); }
+    }
+    const denied = new RecordedDirectory("ad", [() => { throw new CliError("INSUFFICIENT_ACCESS", "synthetic denial"); }], { defaultNamingContext: [BASE] });
+    const result = await run(["--url", "ldaps://directory.example.test", "--anonymous"], { openDirectory: async () => denied });
+    assert.match(result.stdout, /preview_error: INSUFFICIENT_ACCESS/);
+    assert.doesNotMatch(result.stdout, /0 entries|0 of/);
+  });
+});
+
+test("unsupported short flags and home arguments fail before configuration or authentication", async () => {
+  await withEnvironment({ ...isolatedConfig(), LDAP_AXI_AUTH: "invalid" }, async () => {
+    for (const argv of [["-x"], ["--offline", "extra"], ["--url=ldaps://directory.example.test", "extra"], ["user", "show", "-x"]]) {
+      const result = await run(argv, { openDirectory: async () => { assert.fail("invalid input connected"); } });
+      assert.equal(result.exitCode, 2);
+      assert.match(result.stdout, /VALIDATION_ERROR/);
+      assert.match(result.stdout, /valid flags/);
+      assert.match(result.stdout, new RegExp(argv.at(-1)!));
+    }
   });
 });
 

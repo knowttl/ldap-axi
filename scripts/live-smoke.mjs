@@ -1,5 +1,5 @@
 // Fixed read-only live smoke sequence (docs/design/v1.md §19).
-// It runs only with LDAP_AXI_LIVE=1, issues one bind through the ordinary CLI path, and writes a
+// It runs only with LDAP_AXI_LIVE=1, uses one authentication exchange per connected CLI invocation, and writes a
 // redacted evidence file that records shapes and trace events, never directory content.
 import { writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";

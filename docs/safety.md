@@ -12,7 +12,7 @@ The sealed client admits only read operations and allowlisted controls and exten
 
 | Operation | Required permission or credential |
 | --- | --- |
-| Entry, user, group, computer and membership reads | Read access to selected base, entries, and attributes; no directory administrator role required |
+| Configured home, entry, user, group, computer and membership reads | Read access to selected base, entries, and attributes; no directory administrator role required |
 | `server` | Access to advertised rootDSE facts |
 | Ambient authentication | Existing Kerberos cache on Linux or signed-in domain context on Windows |
 | Simple authentication | Directory identity permitted to bind and read |

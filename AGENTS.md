@@ -53,7 +53,7 @@ Stage 1 and stage 2 are implemented: the `src/` foundation, `entry search`, `ent
 `auth status` is the one authentication diagnostic: it reports credential provenance, the recorded native
 provider status from `build/native-status.json`, the scheme-selected mechanism, the SASL security layer, and
 the TLS channel binding, and `--offline` reports that selection with no connection and no bind.
-The home view lists the implemented commands and never connects.
+Configured home previews bounded immediate children; `--offline` and session-start home list the implemented commands without connecting.
 `scripts/live-smoke.mjs` (`npm run smoke:live`) is the manual live check: `LDAP_AXI_LIVE=1`, one fixed
 read-only sequence, GSSAPI tracing, and a redacted evidence file written outside the repository
 (`docs/design/v1.md` §19.5).
