@@ -25,6 +25,7 @@ npx -y @knowttl/ldap-axi
 
 Configured home previews up to five immediate children of the selected directory base using the existing authentication and TLS policy.
 Use `ldap-axi --offline` for local status without connecting.
+See the [home-view contract](docs/design/v1.md#141-the-home-view) for preview limits and offline diagnostics.
 An unconfigured home also stays offline; its output includes:
 
 ```text
@@ -144,6 +145,7 @@ See [configuration](docs/configuration.md) for flags, profile keys, precedence, 
 ## Output and exit codes
 
 Data and structured errors (`error`, `code`, optional `help`) use TOON on stdout; diagnostics use stderr.
+Bare `ldap-axi --version` (also `-v` or `-V`) prints only the package version and exits 0 without connecting.
 Lists read one page by default; `--all --max-rows 2000` requests a longer bounded read.
 Inspect `count`, `partial`, `incomplete`, `stop_reason`, and membership `method`/`transitive` before treating results as complete.
 Referrals are reported without being chased; resumable cursors and `--full` are unsupported.
@@ -152,7 +154,7 @@ See the [command reference](docs/commands.md) for examples and command-specific 
 
 | Exit | Meaning |
 | --- | --- |
-| 0 | Success |
+| 0 | Success, including home reporting an offline connection status |
 | 1 | Operational error, or `setup --check` drift |
 | 2 | `VALIDATION_ERROR` or `CREDENTIAL_INCOMPLETE` |
 
