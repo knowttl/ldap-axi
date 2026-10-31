@@ -101,7 +101,7 @@ export function parse(argv: readonly string[]): Parsed {
     if (!allowedFlags.includes(name)) throw new CliError("VALIDATION_ERROR", `unknown flag --${name} for \`${command}\``, [validFlags]);
     if (values.has(name)) {
       const value = inline ?? argv[++index];
-      if (value === undefined || value.startsWith("--") || value === "" && name !== "base") throw new CliError("VALIDATION_ERROR", `--${name} requires a value`);
+      if (value === undefined || inline === undefined && value.startsWith("-") || value === "" && name !== "base") throw new CliError("VALIDATION_ERROR", `--${name} requires a value`);
       flags[name] = value;
     } else flags[name] = true;
   }

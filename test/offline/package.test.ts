@@ -154,6 +154,31 @@ function verifyCli(packageRoot: string): void {
     LDAP_AXI_URL: "ldaps://directory.example.test", LDAP_AXI_AUTH: "auto", LDAP_AXI_BIND_DN: "cn=synthetic", LDAP_AXI_BIND_PASSWORD: "packaged-home-canary",
     CLAUDE_CONFIG_DIR: resolve(agentRoot, "claude"), CODEX_HOME: resolve(agentRoot, "codex"), OPENCODE_CONFIG_DIR: resolve(agentRoot, "opencode"),
   };
+  const optionGuard = resolve(packageRoot, "option-value-guard.mjs");
+  writeFileSync(optionGuard, `
+    import { syncBuiltinESMExports } from "node:module";
+    import net from "node:net";
+    import tls from "node:tls";
+    const forbidden = () => { process.stderr.write("Invalid option attempted network/native authentication work\\n"); throw new Error("forbidden option side effect"); };
+    net.Socket.prototype.connect = forbidden;
+    tls.connect = forbidden;
+    process.dlopen = forbidden;
+    syncBuiltinESMExports();
+  `);
+  for (const option of ["base", "profile"]) {
+    const result = spawnSync(executable, ["--auth", "simple", `--${option}`, "-x"], {
+      encoding: "utf8", shell: process.platform === "win32",
+      env: { ...environment, NODE_OPTIONS: `--import=${pathToFileURL(optionGuard).href}` },
+    });
+    assert.equal(result.status, 2, result.stderr);
+    assert.match(result.stdout, /VALIDATION_ERROR/);
+    assert.ok(result.stdout.includes(`--${option} requires a value`), result.stdout);
+    assert.equal(result.stderr, "");
+  }
+  const inlineBase = execFileSync(executable, ["--auth", "simple", "--offline", "--base=-x"], {
+    encoding: "utf8", shell: process.platform === "win32", env: environment,
+  });
+  assert.match(inlineBase, /connection: offline/);
   for (const app of ["claude", "codex", "opencode"]) {
     const args = ["setup", "--app", app, "--skill", "--hook"];
     execFileSync(executable, args, { env: environment, shell: process.platform === "win32", stdio: "pipe" });
