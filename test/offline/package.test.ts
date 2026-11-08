@@ -183,7 +183,7 @@ function verifyCli(packageRoot: string): void {
     const args = ["setup", "--app", app, "--skill", "--hook"];
     execFileSync(executable, args, { env: environment, shell: process.platform === "win32", stdio: "pipe" });
     execFileSync(executable, [...args, "--check"], { env: environment, shell: process.platform === "win32", stdio: "pipe" });
-    assert.equal(readFileSync(resolve(agentRoot, app, "skills/ldap-axi/SKILL.md"), "utf8").startsWith(readFileSync(resolve(packageRoot, "skills/ldap-axi/SKILL.md"), "utf8")), true);
+    assert.equal(readFileSync(resolve(agentRoot, app, "skills/ldap-axi/SKILL.md"), "utf8").startsWith(readFileSync(resolve(packageRoot, "skills/ldap-axi/SKILL.md"), "utf8").replaceAll("\r\n", "\n")), true);
   }
   for (const flag of ["--offline", "--session-start"]) {
     const output = execFileSync(executable, [flag], { env: environment, shell: process.platform === "win32", encoding: "utf8" });
