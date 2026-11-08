@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.4](https://github.com/knowttl/ldap-axi/compare/v0.3.3...v0.3.4) (2026-11-08)
+
+
+### Miscellaneous Chores
+
+* release 0.3.4 ([791d464](https://github.com/knowttl/ldap-axi/commit/791d464d5dfed4a7edc06eb25f7a41ae8f6453f9))
+
 ## [0.3.3](https://github.com/knowttl/ldap-axi/compare/v0.3.2...v0.3.3) (2026-11-02)
 
 
